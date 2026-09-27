@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PostFX } from './PostFX';
 import type { QualitySettings } from '../systems/Quality';
 import { installHeightFog } from './HeightFog';
+import { isPhone, isTouchPrimary } from '../systems/Device';
 
 /** Owns the WebGL renderer, main camera, scene and the post-processing stack. */
 export class Renderer {
@@ -31,11 +32,16 @@ export class Renderer {
     this.camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.1, 2500);
     this.post = new PostFX(this.renderer, this.scene, this.camera);
     window.addEventListener('resize', () => this.resize());
+    // iOS reports stale sizes on the orientationchange event itself.
+    window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250));
+    window.visualViewport?.addEventListener('resize', () => this.resize());
   }
 
   applyQuality(q: QualitySettings): void {
     this.quality = q;
     this.pixelBudget = q.preset === 'low' ? 1.3e6 : q.preset === 'medium' ? 2.3e6 : 3.8e6;
+    // Mobile GPUs are fill-rate bound: keep far fewer pixels than desktop at the same preset.
+    if (isTouchPrimary) this.pixelBudget *= isPhone() ? 0.55 : 0.75;
     this.renderer.shadowMap.enabled = q.shadows;
     this.post.applyQuality(q);
     this.resize();
@@ -60,7 +66,21 @@ export class Renderer {
 
   render(realDt: number, time: number): void {
     this.renderer.info.reset();
+    // Narrow/portrait screens: widen the vertical FOV so the horizontal view doesn't collapse.
+    // Desktop aspects (>= 1.3) are untouched.
+    const cam = this.camera;
+    const fov = cam.fov;
+    if (cam.aspect < 1.3) {
+      const k = Math.pow(1.3 / cam.aspect, 0.6);
+      const t = Math.tan(THREE.MathUtils.degToRad(fov / 2)) * k;
+      cam.fov = Math.min(100, THREE.MathUtils.radToDeg(2 * Math.atan(t)));
+      cam.updateProjectionMatrix();
+    }
     this.post.render(realDt, time);
+    if (cam.fov !== fov) {
+      cam.fov = fov;
+      cam.updateProjectionMatrix();
+    }
   }
 
   get info() {

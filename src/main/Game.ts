@@ -10,6 +10,7 @@ import { SettingsStore } from '../save/SettingsStore';
 import { InputManager } from '../input/InputManager';
 import { KeyboardMouseProvider } from '../input/KeyboardMouseProvider';
 import { GamepadProvider } from '../input/GamepadProvider';
+import { TouchProvider } from '../input/TouchProvider';
 import { prettyCode } from '../input/Bindings';
 import { AssetManager } from '../assets/AssetManager';
 import { CollisionWorld } from '../physics/Colliders';
@@ -68,6 +69,7 @@ export class Game {
   player!: Player;
   chapters!: ChapterManager;
   private kbm: KeyboardMouseProvider;
+  private touch!: TouchProvider;
   private ui: {
     loading: LoadingScreen;
     menu: MainMenu;
@@ -129,8 +131,12 @@ export class Game {
       end: new EndCard(uiRoot),
     };
     this.ui.settings.onClose = () => this.closeSettings();
+    this.ui.journal.onClose = () => this.closeJournal();
     this.ui.settings.effectiveLabel = () => this.quality?.label ?? '';
     this.ui.hud.setVisible(false);
+    this.touch = new TouchProvider(canvas, uiRoot);
+    this.input.add(this.touch);
+    this.touch.onButton = (b) => this.onKey(b === 'pause' ? this.settings.value.bindings.pause[0] : this.settings.value.bindings.journal[0]);
     // First user gesture anywhere unlocks audio.
     const unlock = () => this.audio.unlock();
     window.addEventListener('pointerdown', unlock);
@@ -258,7 +264,7 @@ export class Game {
     E.on('collectible:found', (e) => {
       this.sfx.pickup();
       const c = collectible(e.id);
-      this.ui.hud.toast(c?.kind === 'relic' ? 'Relic found' : 'Journal page found', `${e.title} — press ${prettyCode(this.settings.value.bindings.journal[0])} to read`, 5);
+      this.ui.hud.toast(c?.kind === 'relic' ? 'Relic found' : 'Journal page found', `${e.title} — ${this.touch.active ? 'tap ✎' : `press ${prettyCode(this.settings.value.bindings.journal[0])}`} to read`, 5);
     });
     this.dialogue.onLine = (l) => {
       this.ui.hud.setLine(l);
@@ -495,7 +501,7 @@ export class Game {
   }
 
   private requestLock(): void {
-    if (document.pointerLockElement === this.canvas) return;
+    if (document.pointerLockElement === this.canvas || this.touch.active) return;
     try {
       const r = this.canvas.requestPointerLock() as unknown as Promise<void> | undefined;
       if (r && typeof r.catch === 'function') r.catch(() => {});
@@ -583,7 +589,7 @@ export class Game {
         this.updateSkip(realDt);
         this.updatePrompt(cineLock);
         if (playing) this.perf.update(realDt);
-        this.ui.hud.setClickHint(playing && !cineLock && !document.pointerLockElement && this.hadLock);
+        this.ui.hud.setClickHint(playing && !cineLock && !document.pointerLockElement && this.hadLock && !this.touch.active);
         this.updateMinimap(realDt, playing && !this.cinematic.active);
       }
     }
@@ -606,6 +612,7 @@ export class Game {
     const g = this.renderer.post.gradeUniforms;
     const paused = this.gameState === 'paused' || this.gameState === 'journal' || this.ui.settings.isOpen && this.settingsReturn === 'paused';
     this.pauseBlur = damp(this.pauseBlur, paused ? 1 : 0, 8, realDt);
+    this.ui.hud.root.classList.toggle('paused', paused || this.ui.settings.isOpen);
     g.uPause.value = this.pauseBlur;
     g.uLetterbox.value = this.cinematic.letterbox;
     const wantDof = this.cinematic.playing && this.cinematic.current?.dof !== false ? 1 : 0;
@@ -618,6 +625,8 @@ export class Game {
     this.music.update();
     this.renderer.render(realDt, this.clock.time);
     if (this.debug) this.updateDev(realDt);
+    const cine = this.cinematic.playing || (this.cinematic.active && this.cinematic.blendAmount > 0.35);
+    this.touch.setMode(!!this.player && this.gameState === 'playing' && !this.ui.settings.isOpen, cine);
   };
 
   private minimapChapter: unknown = null;
@@ -641,7 +650,7 @@ export class Game {
     if (seq?.skippable && this.gameState === 'playing') {
       if (this.input.rawHeld('jump')) this.skipHold += realDt;
       else this.skipHold = Math.max(0, this.skipHold - realDt * 2);
-      this.ui.hud.setSkip(true, Math.min(1, this.skipHold / 0.8));
+      this.ui.hud.setSkip(true, Math.min(1, this.skipHold / 0.8), this.touch.active ? 'JUMP' : prettyCode(this.settings.value.bindings.jump[0]));
       if (this.skipHold >= 0.8) {
         this.skipHold = 0;
         this.cinematic.skip();
@@ -654,13 +663,18 @@ export class Game {
 
   private updatePrompt(cineLock: boolean): void {
     const hud = this.ui.hud;
-    if (cineLock || this.gameState !== 'playing') return hud.setPrompt(null);
+    if (cineLock || this.gameState !== 'playing') {
+      this.touch.setInteractReady(null);
+      return hud.setPrompt(null);
+    }
     const b = this.settings.value.bindings;
     const f = this.interaction.focused;
-    if (f) return hud.setPrompt(f.prompt, prettyCode(b.interact[0]));
+    const t = this.touch.active;
     const p = this.player.prompt;
-    if (p === 'Climb') return hud.setPrompt('Climb', prettyCode(b.interact[0]));
-    if (p === 'Climb up') return hud.setPrompt('Climb up', prettyCode(b.moveForward[0]));
+    this.touch.setInteractReady(f || p === 'Climb' ? 'use' : null);
+    if (f) return hud.setPrompt(f.prompt, t ? 'USE' : prettyCode(b.interact[0]));
+    if (p === 'Climb') return hud.setPrompt('Climb', t ? 'USE' : prettyCode(b.interact[0]));
+    if (p === 'Climb up') return hud.setPrompt('Climb up', t ? '↑' : prettyCode(b.moveForward[0]));
     hud.setPrompt(null);
   }
 

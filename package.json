@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "playtest": "node scripts/playtest.mjs",
+    "playtest:mobile": "node scripts/mobile-test.mjs",
     "gen:character": "node scripts/gen-temp-character.mjs",
     "predev": "node scripts/copy-decoders.mjs",
     "prebuild": "node scripts/copy-decoders.mjs"

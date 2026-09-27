@@ -7,14 +7,17 @@ export class JournalView {
   private page: HTMLElement;
   private selected: string | null = null;
   private found = new Set<string>();
+  onClose: (() => void) | null = null;
 
   constructor(parent: HTMLElement) {
     this.list = el('ul');
     this.page = el('div', { class: 'page' });
+    const closeBtn = el('button', { class: 'interactive touch-only' }, ['Close']);
     this.root = el('div', { class: 'layer journal' }, [
       el('div', { class: 'book interactive' }, [this.list, this.page]),
-      el('div', { class: 'close' }, ['J / ESC to close']),
+      el('div', { class: 'close' }, [el('span', { class: 'kb-only' }, ['J / ESC to close']), closeBtn]),
     ]);
+    closeBtn.onclick = () => this.onClose?.();
     parent.append(this.root);
   }
 

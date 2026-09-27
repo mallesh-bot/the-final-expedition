@@ -31,7 +31,7 @@ export class HUD {
     this.cardNum = el('div', { class: 'num' });
     this.cardName = el('div', { class: 'name' });
     this.card = el('div', { class: 'card' }, [this.cardNum, this.cardName, el('div', { class: 'line' })]);
-    this.skip = el('div', { class: 'skip', html: `<svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/><circle class="fg" cx="13" cy="13" r="11" fill="none" stroke-width="2"/></svg><span>Hold <span class="key">SPACE</span> to skip</span>` });
+    this.skip = el('div', { class: 'skip', html: `<svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/><circle class="fg" cx="13" cy="13" r="11" fill="none" stroke-width="2"/></svg><span>Hold <span class="key skip-key">SPACE</span> to skip</span>` });
     this.skipRing = this.skip.querySelector('circle.fg') as SVGCircleElement;
     this.fadeEl = el('div', { class: 'fade' });
     this.dev = el('div', { class: 'dev' });
@@ -83,8 +83,10 @@ export class HUD {
     setTimeout(() => show(this.card, false), seconds * 1000);
   }
 
-  setSkip(visible: boolean, progress: number): void {
+  setSkip(visible: boolean, progress: number, key = 'SPACE'): void {
     show(this.skip, visible);
+    const k = this.skip.querySelector('.skip-key')!;
+    if (k.textContent !== key) k.textContent = key;
     this.skipRing.style.strokeDashoffset = String(69.1 * (1 - progress));
   }
 

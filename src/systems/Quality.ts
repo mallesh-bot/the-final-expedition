@@ -1,5 +1,6 @@
 import type * as THREE from 'three';
 import type { QualityPreset } from '../save/SettingsStore';
+import { isPhone, isTouchPrimary } from './Device';
 
 /** Effective, concrete render settings. Purely visual — never read by gameplay. */
 export interface QualitySettings {
@@ -99,10 +100,24 @@ const HIGH_BASE: QualitySettings = {
 export const HIGH_LEVEL_COUNT = HIGH_LEVELS.length;
 
 export function resolveQuality(preset: QualityPreset, highLevel: number): QualitySettings {
-  if (preset === 'low') return { ...LOW };
-  if (preset === 'medium') return { ...MEDIUM };
-  const lvl = Math.max(0, Math.min(HIGH_LEVELS.length - 1, highLevel));
-  return { ...HIGH_BASE, ...HIGH_LEVELS[lvl] };
+  let q: QualitySettings;
+  if (preset === 'low') q = { ...LOW };
+  else if (preset === 'medium') q = { ...MEDIUM };
+  else q = { ...HIGH_BASE, ...HIGH_LEVELS[Math.max(0, Math.min(HIGH_LEVELS.length - 1, highLevel))] };
+  return isTouchPrimary ? mobileTrim(q) : q;
+}
+
+/** Mobile/tablet GPUs: trim the costliest features at every preset. Desktop is never affected. */
+function mobileTrim(q: QualitySettings): QualitySettings {
+  const phone = isPhone();
+  q.ao = false;
+  q.shadowMapSize = Math.min(q.shadowMapSize, phone ? 1024 : 2048);
+  q.anisotropy = Math.min(q.anisotropy, 4);
+  q.grassDistance *= phone ? 0.65 : 0.8;
+  q.vegetationDistance *= phone ? 0.75 : 0.9;
+  q.particleScale *= phone ? 0.6 : 0.8;
+  if (phone) q.dof = false;
+  return q;
 }
 
 export interface GpuProbe {
@@ -141,6 +156,7 @@ export function probeGpu(renderer: THREE.WebGLRenderer): GpuProbe {
   if (maxTexture < 8192) level = Math.max(level, 3);
   if (cores <= 4) level = Math.max(level, 2);
 
-  const suggestedPreset: QualityPreset = software ? 'low' : level >= 3 ? 'medium' : 'high';
+  if (isTouchPrimary) level = Math.max(level, isPhone() ? 4 : 3);
+  const suggestedPreset: QualityPreset = software || isPhone() ? 'low' : level >= 3 ? 'medium' : 'high';
   return { renderer: rendererStr, vendor, maxTexture, cores, software, suggestedHighLevel: level, suggestedPreset };
 }
