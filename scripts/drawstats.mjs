@@ -1,0 +1,17 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=metal'] });
+const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+await page.goto('http://localhost:5173/?debug');
+await page.waitForFunction(() => window.__TFE?.state().gameState === 'menu', null, { timeout: 60000 });
+await page.click('button[data-action="new"]');
+await page.waitForTimeout(1200);
+await page.evaluate(() => window.__TFE.skipCinematic());
+await page.waitForTimeout(2000);
+await page.evaluate(() => window.__TFE.setQuality('low'));
+await page.evaluate(() => { window.__TFE.teleport(2.5, 0, -19, 0); window.__TFE.setCameraYaw(0, 0.18); });
+await page.waitForTimeout(1500);
+const st = await page.evaluate(() => window.__TFE.drawStats());
+const s = await page.evaluate(() => window.__TFE.state());
+console.log('calls', s.drawCalls, 'tris', s.triangles, 'shadowCasters', st.shadowCasters);
+for (const [k, n] of st.tris) console.log(String(n).padStart(6), k);
+await browser.close();
