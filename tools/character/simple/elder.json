@@ -1,0 +1,97 @@
+{
+  "id": "elder",
+  "name": "Elder",
+  "notes": "Doña Ayme Anca, Tamsa Alta elder (epilogue). Muted terracotta wool blouse, dark woven corset and trousers, grey hair in buns. Quaternius CC0 kits, original combination.",
+  "legacy_clips_from": "ines",
+  "outfit": "Female_Peasant",
+  "drop_parts": [],
+  "head_from": "Superhero_Female_FullBody",
+  "hair": [
+    "Hair_Buns",
+    "Eyebrows_Female"
+  ],
+  "recolor": {
+    "SuperHero_Female": {
+      "mode": "tint",
+      "hue": [
+        0,
+        360
+      ],
+      "min_sat": -1,
+      "color": [
+        0.8,
+        0.64,
+        0.52
+      ]
+    },
+    "Peasant_Arms": {
+      "hue": [
+        0,
+        360
+      ],
+      "min_sat": -1,
+      "max_sat": 0.3,
+      "min_val": 0.55,
+      "color": [
+        0.36,
+        0.14,
+        0.1
+      ],
+      "contrast": 0.8
+    },
+    "Peasant_Body": {
+      "hue": [
+        0,
+        360
+      ],
+      "min_sat": -1,
+      "max_sat": 0.3,
+      "min_val": 0.5,
+      "color": [
+        0.36,
+        0.14,
+        0.1
+      ],
+      "contrast": 0.8
+    },
+    "Peasant_Legs": {
+      "hue": [
+        0,
+        360
+      ],
+      "min_sat": 0.1,
+      "color": [
+        0.09,
+        0.08,
+        0.085
+      ],
+      "contrast": 0.85
+    },
+    "Hair_Buns": {
+      "hue": [
+        0,
+        360
+      ],
+      "min_sat": -1,
+      "color": [
+        0.36,
+        0.36,
+        0.35
+      ],
+      "contrast": 0.95
+    },
+    "Eyebrows": {
+      "hue": [
+        0,
+        360
+      ],
+      "min_sat": -1,
+      "color": [
+        0.4,
+        0.4,
+        0.39
+      ],
+      "contrast": 0.8
+    }
+  }
+}

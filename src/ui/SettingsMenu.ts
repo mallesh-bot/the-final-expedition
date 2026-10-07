@@ -120,8 +120,10 @@ export class SettingsMenu {
       this.body.append(
         this.row(
           'Graphics quality',
-          this.seg<QualityPreset>([['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH']], s.quality, (v) => up({ quality: v })),
-          s.quality === 'high' ? `Adaptive — currently ${this.effectiveLabel()}` : 'Visual only; never affects gameplay',
+          this.seg<QualityPreset>([['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH'], ['ultra', 'ULTRA']], s.quality, (v) => up({ quality: v })),
+          s.quality === 'ultra'
+            ? `Experimental, for powerful GPUs — currently ${this.effectiveLabel()}`
+            : `Resolution adapts to hold frame rate — currently ${this.effectiveLabel()}`,
         ),
         this.row('Field of view', this.slider(s.fov, 50, 80, 1, (v) => up({ fov: v })), `${s.fov}°`),
         this.row('Camera shake', this.slider(s.cameraShake, 0, 1, 0.05, (v) => up({ cameraShake: v }))),
@@ -134,6 +136,7 @@ export class SettingsMenu {
         this.row('Music', this.slider(s.musicVolume, 0, 1, 0.01, (v) => up({ musicVolume: v }))),
         this.row('Effects', this.slider(s.sfxVolume, 0, 1, 0.01, (v) => up({ sfxVolume: v }))),
         this.row('Ambience', this.slider(s.ambienceVolume, 0, 1, 0.01, (v) => up({ ambienceVolume: v }))),
+        this.row('Voices', this.slider(s.voiceVolume, 0, 1, 0.01, (v) => up({ voiceVolume: v }))),
       );
     } else {
       this.body.append(

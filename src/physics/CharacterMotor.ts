@@ -37,11 +37,39 @@ export class CharacterMotor {
   teleport(p: THREE.Vector3): void {
     this.position.copy(p);
     this.velocity.set(0, 0, 0);
-    const g = this.world.groundAt(p.x, p.z, p.y + 0.5);
+    // Never come to rest embedded in solid geometry (vault/climb-up targets, ledge exits, spawns).
+    this.depenetrate();
+    const g = this.world.groundAt(this.position.x, this.position.z, this.position.y + 0.5);
     this.groundY = g.y;
     this.grounded = Math.abs(p.y - g.y) < 0.3;
     if (this.grounded) this.position.y = g.y;
     this.peakY = this.position.y;
+  }
+
+  /** Push the capsule horizontally out of any overlapping collider. Returns the distance moved. */
+  depenetrate(): number {
+    const x = this.position.x;
+    const z = this.position.z;
+    this.world.resolveCylinder(this.position, this.radius, this.position.y + this.stepHeight, this.position.y + this.height);
+    if (this.penetrationDepth() > 0.01) {
+      // Wedged where no push-out works (gap narrower than the capsule): nearest free spot on rings.
+      search: for (let r = 0.25; r <= 2.5; r += 0.25) {
+        for (let k = 0; k < 12; k++) {
+          const a = (k / 12) * Math.PI * 2;
+          this.position.x = x + Math.sin(a) * r;
+          this.position.z = z + Math.cos(a) * r;
+          if (this.penetrationDepth() <= 0.01) break search;
+        }
+      }
+    }
+    return Math.hypot(this.position.x - x, this.position.z - z);
+  }
+
+  /** How deeply the capsule currently overlaps solid geometry (m), without moving it. Test/debug aid. */
+  penetrationDepth(): number {
+    const p = this.tmp.copy(this.position);
+    this.world.resolveCylinder(p, this.radius - 0.005, p.y + this.stepHeight, p.y + this.height);
+    return Math.hypot(p.x - this.position.x, p.z - this.position.z);
   }
 
   jump(speed: number): void {
@@ -93,6 +121,11 @@ export class CharacterMotor {
       const feet = this.position.y + this.stepHeight;
       if (this.world.resolveCylinder(this.position, this.radius, feet, this.position.y + this.height, this.contactNormal)) {
         ev.blocked = true;
+        // Gap narrower than the capsule (pushes from two colliders cancel out): refuse the move.
+        if (this.penetrationDepth() > 0.01) {
+          this.position.x = ox;
+          this.position.z = oz;
+        }
         // Remove velocity into the contact.
         const n = this.contactNormal;
         const l = Math.hypot(n.x, n.z);
@@ -109,6 +142,9 @@ export class CharacterMotor {
     }
 
     // Vertical movement
+    const preX = this.position.x;
+    const preY = this.position.y;
+    const preZ = this.position.z;
     this.position.y += this.velocity.y * dt;
     const probeTop = this.position.y + this.stepHeight;
     const g = this.world.groundAt(this.position.x, this.position.z, probeTop, this.radius * 0.45);
@@ -149,6 +185,19 @@ export class CharacterMotor {
             this.velocity.y = 0;
           }
         }
+      }
+    }
+
+    // Vertical motion can carry the capsule's side into a box it was beside (falling past a ledge
+    // corner, landing on a slope next to a crate). Resolve the new vertical band too.
+    if (this.world.resolveCylinder(this.position, this.radius, this.position.y + this.stepHeight, this.position.y + this.height, this.contactNormal)) {
+      ev.blocked = true;
+      // Dropped into a gap narrower than the capsule: stay on the lip instead of embedding.
+      if (this.penetrationDepth() > 0.01) {
+        this.position.set(preX, preY, preZ);
+        this.velocity.y = 0;
+        this.grounded = true; // resting on the lip; the next step tries again
+        delete ev.landed;
       }
     }
 

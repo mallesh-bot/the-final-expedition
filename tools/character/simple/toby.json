@@ -1,0 +1,24 @@
+{
+  "id": "toby",
+  "name": "Toby",
+  "notes": "Simple stylised Toby (Quaternius CC0 kits). Mood: image 1 (earthy tunic layers) + bible (glasses, bucket hat). Original combination, not a copy.",
+  "outfit": "Male_Peasant",
+  "drop_parts": [],
+  "head_from": "Superhero_Male_FullBody",
+  "hair": ["Hair_Buzzed", "Eyebrows_Regular"],
+  "recolor": {
+    "SuperHero_Male": { "mode": "tint", "hue": [0, 360], "min_sat": -1, "color": [0.56, 0.4, 0.3] },
+    "Peasant_Arms": [
+      { "mode": "tint", "hue": [0, 55], "min_sat": 0.27, "min_val": 0.4, "color": [0.56, 0.4, 0.3] },
+      { "hue": [15, 75], "min_sat": -1, "max_sat": 0.26, "min_val": 0.5, "color": [0.64, 0.57, 0.41], "contrast": 0.8 }
+    ],
+    "Peasant_Body": { "hue": [15, 75], "min_sat": -1, "max_sat": 0.3, "min_val": 0.5, "color": [0.64, 0.57, 0.41], "contrast": 0.8 },
+    "Peasant_Legs": { "hue": [0, 70], "min_sat": 0.1, "color": [0.3, 0.32, 0.19], "contrast": 0.85 },
+    "Hair_Buzzed": { "hue": [0, 360], "min_sat": -1, "color": [0.05, 0.04, 0.035], "contrast": 0.9 },
+    "Eyebrows": { "hue": [0, 360], "min_sat": -1, "color": [0.05, 0.04, 0.035], "contrast": 0.8 }
+  },
+  "gear": {
+    "glasses": { "color": [0.02, 0.018, 0.016], "radius": 0.021, "separation": 0.033, "eye_height": 0.4, "forward": 0.014 },
+    "bucket_hat": { "color": [0.62, 0.56, 0.42], "fit": 1.08, "lift": 0.012, "band_height": 0.76, "brim": 0.06, "droop": 0.035 }
+  }
+}

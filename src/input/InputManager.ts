@@ -40,6 +40,12 @@ export class InputManager {
     for (const a of this.prevHeld) if (!this.frame.held.has(a)) this.releasedSet.add(a);
   }
 
+  /** After the first simulation substep of a frame: edges must not fire again in later substeps. */
+  consumeEdges(): void {
+    this.pressedSet.clear();
+    this.releasedSet.clear();
+  }
+
   move(): { x: number; y: number } {
     if (!this.gameplayEnabled) return { x: 0, y: 0 };
     let { moveX: x, moveY: y } = this.frame;

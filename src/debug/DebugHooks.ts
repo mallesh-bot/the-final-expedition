@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import type { Game } from '../main/Game';
+import { CharacterMotor } from '../physics/CharacterMotor';
+import { globalUniforms } from '../render/HeightFog';
 
 /**
  * Automation/test hooks, only installed with ?debug in the URL. Used by scripts/playtest.mjs.
@@ -21,6 +23,7 @@ export function installDebugHooks(game: Game): void {
       cinematic: game.cinematic.current?.id ?? null,
       cinematicActive: game.cinematic.active,
       quality: game.quality.label,
+      renderScale: +game.renderer.effectiveScale.toFixed(2),
       fps: game.perfMonitor.fps,
       frameMs: game.perfMonitor.frameMs,
       drawCalls: game.renderer.info.render.calls,
@@ -51,10 +54,159 @@ export function installDebugHooks(game: Game): void {
     clearFreeCam: () => {
       (game as unknown as { freeCamPose: unknown }).freeCamPose = null;
     },
+    /** Height of each foot bone above the ground directly under it (m). */
+    footGaps: () => {
+      const av = game.player.avatar;
+      const out: number[] = [];
+      for (const k of ['footL', 'footR']) {
+        const b = av.bones[k];
+        if (!b) continue;
+        const p = b.getWorldPosition(new THREE.Vector3());
+        out.push(+(p.y - game.world.groundAt(p.x, p.z, p.y + 0.5).y).toFixed(4));
+      }
+      return out;
+    },
+    setFootIK: (on: boolean) => {
+      game.player.avatar.footIK.enabled = on;
+    },
+    /** Find a walkable slope (normal.y in range) near a point, free of colliders. */
+    findSlope: (cx: number, cz: number, minNy = 0.88, maxNy = 0.95) => {
+      const hf = game.world.heightfield!;
+      const n = new THREE.Vector3();
+      for (let r = 2; r < 40; r += 1.5)
+        for (let a = 0; a < Math.PI * 2; a += 0.3) {
+          const x = cx + Math.cos(a) * r;
+          const z = cz + Math.sin(a) * r;
+          hf.normalAt(x, z, n);
+          if (n.y < minNy || n.y > maxNy) continue;
+          // (query() always includes dynamic colliders like the gate door: test real distance)
+          if (game.world.query(x - 2, z - 2, x + 2, z + 2).some((b) => Math.hypot(b.center.x - x, b.center.z - z) < Math.hypot(b.half.x, b.half.z) + 1.2)) continue;
+          // Face across the slope so one foot is uphill and one downhill.
+          return { x, z, y: game.world.groundAt(x, z, 1e4).y, ny: +n.y.toFixed(3), yaw: Math.atan2(n.z, -n.x) };
+        }
+      return null;
+    },
+    /** Head yaw relative to the body (deg): compare with look-at on/off. */
+    headYaw: () => {
+      const head = game.player.avatar.bones.head!;
+      const q = head.getWorldQuaternion(new THREE.Quaternion());
+      const rootQ = game.player.avatar.root.getWorldQuaternion(new THREE.Quaternion());
+      const v = new THREE.Vector3(0, 0, 1).applyQuaternion(rootQ.invert().multiply(q));
+      return +THREE.MathUtils.radToDeg(Math.atan2(v.x, v.z)).toFixed(1);
+    },
+    /** Head world rotation as [x, y, z, w]. */
+    headQuat: () => game.player.avatar.bones.head!.getWorldQuaternion(new THREE.Quaternion()).toArray(),
+    /**
+     * Angle (deg) between where the head points and the target, where "points" = the character's
+     * forward rotated by the head's change since the reference rotation `q0` (taken with look off).
+     */
+    lookError: (x: number, y: number, z: number, q0: number[]) => {
+      const head = game.player.avatar.bones.head!;
+      const q1 = head.getWorldQuaternion(new THREE.Quaternion());
+      const delta = q1.multiply(new THREE.Quaternion().fromArray(q0).invert());
+      const fwd = game.player.facing.clone().applyQuaternion(delta);
+      const p = head.getWorldPosition(new THREE.Vector3());
+      const to = new THREE.Vector3(x, y, z).sub(p);
+      fwd.y = 0;
+      to.y = 0;
+      return +THREE.MathUtils.radToDeg(fwd.angleTo(to)).toFixed(1);
+    },
+    setLookAt: (on: boolean) => {
+      game.interaction.lookDisabled = !on;
+    },
+    /** The foliage-interaction uniform as the shaders see it. */
+    foliagePlayer: () => globalUniforms.uPlayerPos.value.toArray(),
+    /** Camera spring-arm check: is anything solid between the camera pivot and the camera? */
+    cameraClear: () => {
+      const pivot = game.camera.armOrigin;
+      const cam = game.renderer.camera.position;
+      const d = cam.clone().sub(pivot);
+      const len = d.length();
+      const hit = game.world.raycast(pivot, d.normalize(), len, true, true);
+      return { len: +len.toFixed(3), hit: hit === null ? null : +hit.toFixed(3) };
+    },
+    /** Current player overlap with solid geometry in metres (0 = not embedded). */
+    penetration: () => game.player.motor.penetrationDepth(),
+    /**
+     * Collision sweep: drives a test capsule from `n` seeded random spots in random headings for
+     * 2 s each (sliding along whatever it hits) and reports the worst overlap seen. Pure
+     * simulation, no rendering — independent of GPU speed.
+     */
+    collisionSweep: (n = 2000, seed = 7) => {
+      const m = new CharacterMotor(game.world);
+      let s = seed >>> 0;
+      const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+      const b = game.world.bounds;
+      let worst = 0;
+      let bad = 0;
+      let blocked = 0;
+      const worstAt: number[][] = [];
+      const p = new THREE.Vector3();
+      for (let i = 0; i < n; i++) {
+        const x = b.minX + 1 + rnd() * (b.maxX - b.minX - 2);
+        const z = b.minZ + 1 + rnd() * (b.maxZ - b.minZ - 2);
+        p.set(x, game.world.groundAt(x, z, 1e4).y, z);
+        m.teleport(p);
+        const a = rnd() * Math.PI * 2;
+        let sampleWorst = 0;
+        for (let k = 0; k < 120; k++) {
+          m.velocity.x = Math.sin(a) * 4.3;
+          m.velocity.z = Math.cos(a) * 4.3;
+          if (m.update(1 / 60).blocked) blocked++;
+          sampleWorst = Math.max(sampleWorst, m.penetrationDepth());
+        }
+        if (sampleWorst > 0.02) {
+          bad++;
+          if (worstAt.length < 10) worstAt.push([+x.toFixed(2), +z.toFixed(2), +a.toFixed(2), +sampleWorst.toFixed(3)]);
+        }
+        worst = Math.max(worst, sampleWorst);
+      }
+      return { samples: n, worst: +worst.toFixed(4), embeddedSamples: bad, blockedSteps: blocked, worstAt };
+    },
     skipCinematic: () => game.cinematic.skip(),
+    /** Start a chapter fresh from the main menu (or anywhere: returns to menu state first). */
+    startChapter: async (id: number) => {
+      const g = game as unknown as { gameState: string; newGame: (id: number) => Promise<void>; showMenu: () => void };
+      if (g.gameState !== 'menu') g.gameState = 'menu';
+      await g.newGame(id);
+    },
+    /** Jump to a checkpoint of the loaded chapter (restores chapter state as on respawn). */
+    gotoCheckpoint: (id: string) => {
+      const ch = game.chapters.current;
+      if (!ch?.checkpoints[id]) return false;
+      game.state.progress.checkpoint = id;
+      game.player.pendingRestore = null;
+      ch.onRestored(id, false);
+      return true;
+    },
+    heroFrames: () => ((game.chapters.current as unknown as { heroFrames?: () => { name: string }[] })?.heroFrames?.() ?? []).map((f) => f.name),
+    /** Stage hero frame i: checkpoint state, prep, frozen camera, HUD hidden. Returns settle time. */
+    heroFrame: (i: number) => {
+      const ch = game.chapters.current as unknown as { heroFrames?: () => { cp: string; cam: number[]; look: number[]; prep?: () => void; settle?: number }[]; checkpoints: Record<string, unknown>; onRestored: (c: string, n: boolean) => void };
+      const f = ch.heroFrames?.()[i];
+      if (!f) return -1;
+      game.cinematic.reset();
+      game.dialogue.clear();
+      (ch as unknown as { heroMode: boolean }).heroMode = true;
+      game.state.progress.checkpoint = f.cp;
+      game.player.pendingRestore = null;
+      ch.onRestored(f.cp, false);
+      f.prep?.();
+      const cam = game.renderer.camera;
+      (game as unknown as { freeCamPose: unknown }).freeCamPose = { p: new THREE.Vector3(...f.cam), l: new THREE.Vector3(...f.look) };
+      cam.position.set(f.cam[0], f.cam[1], f.cam[2]);
+      cam.lookAt(f.look[0], f.look[1], f.look[2]);
+      document.querySelectorAll<HTMLElement>('.hud, .layer.hud, .card').forEach((e) => (e.style.visibility = 'hidden'));
+      return f.settle ?? 1.5;
+    },
+    chapterDebug: () => (game.chapters.current as unknown as { debug?: () => unknown })?.debug?.() ?? null,
+    chapterCall: (name: string, ...args: unknown[]) => {
+      const ch = game.chapters.current as unknown as Record<string, (...a: unknown[]) => unknown>;
+      return ch?.[name]?.(...args);
+    },
     pause: () => game.pause(),
     resume: () => game.resume(),
-    setQuality: (q: 'low' | 'medium' | 'high') => game.settings.update({ quality: q }),
+    setQuality: (q: 'low' | 'medium' | 'high' | 'ultra') => game.settings.update({ quality: q }),
     saveManual: () => game.saves.write('manual', game.state.capture(), game.saveLabel()),
     latestSave: () => game.saves.latest(),
     chapter: () => game.chapters.current,

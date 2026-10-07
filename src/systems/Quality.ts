@@ -22,13 +22,24 @@ export interface QualitySettings {
   particleScale: number;
   anisotropy: number;
   lightShafts: boolean;
+  /** Tree trunks and canopies cast sun shadows (alpha-tested shadow pass; understory is HIGH+ only). */
+  vegetationShadows: boolean;
+  /** Dynamic resolution holds this frame time (ms) by scaling render resolution. */
+  targetFrameMs: number;
+  /** Lowest dynamic render-scale multiplier allowed (1 = never scale down). */
+  dynamicResFloor: number;
 }
 
+/*
+ * Budgets come from PRD §27–§28. Profiling on an integrated GPU showed the game is fill-rate
+ * bound (half resolution = 2.5x FPS; alpha-tested foliage overdraw is the next cost), so presets
+ * scale resolution, overdraw and shadow casters rather than just post-processing.
+ */
 const LOW: QualitySettings = {
   preset: 'low',
   label: 'LOW',
   pixelRatioCap: 1,
-  renderScale: 1,
+  renderScale: 0.8,
   shadows: true,
   shadowMapSize: 1024,
   ao: false,
@@ -36,19 +47,22 @@ const LOW: QualitySettings = {
   dof: false,
   antialias: 'fxaa',
   msaaSamples: 0,
-  vegetationDensity: 0.4,
-  vegetationDistance: 70,
-  grassDistance: 24,
-  particleScale: 0.4,
+  vegetationDensity: 0.35,
+  vegetationDistance: 55,
+  grassDistance: 18,
+  particleScale: 0.3,
   anisotropy: 2,
-  lightShafts: true,
+  lightShafts: false,
+  vegetationShadows: false,
+  targetFrameMs: 1000 / 30,
+  dynamicResFloor: 0.55,
 };
 
 const MEDIUM: QualitySettings = {
   preset: 'medium',
   label: 'MEDIUM',
   pixelRatioCap: 1.5,
-  renderScale: 1,
+  renderScale: 0.9,
   shadows: true,
   shadowMapSize: 2048,
   ao: false,
@@ -57,11 +71,14 @@ const MEDIUM: QualitySettings = {
   antialias: 'smaa',
   msaaSamples: 0,
   vegetationDensity: 0.7,
-  vegetationDistance: 110,
-  grassDistance: 36,
-  particleScale: 0.7,
+  vegetationDistance: 90,
+  grassDistance: 30,
+  particleScale: 0.6,
   anisotropy: 4,
   lightShafts: true,
+  vegetationShadows: true,
+  targetFrameMs: 20,
+  dynamicResFloor: 0.65,
 };
 
 /**
@@ -95,6 +112,22 @@ const HIGH_BASE: QualitySettings = {
   particleScale: 1,
   anisotropy: 8,
   lightShafts: true,
+  vegetationShadows: true,
+  targetFrameMs: 1000 / 60,
+  dynamicResFloor: 0.8,
+};
+
+/** Opt-in, never auto-selected. Falls back via the dynamic-resolution floor and adaptive watchdog. */
+const ULTRA: QualitySettings = {
+  ...HIGH_BASE,
+  preset: 'ultra',
+  label: 'ULTRA (experimental)',
+  shadowMapSize: 4096,
+  vegetationDistance: 200,
+  grassDistance: 70,
+  particleScale: 1.5,
+  anisotropy: 16,
+  dynamicResFloor: 0.85,
 };
 
 export const HIGH_LEVEL_COUNT = HIGH_LEVELS.length;
@@ -103,6 +136,7 @@ export function resolveQuality(preset: QualityPreset, highLevel: number): Qualit
   let q: QualitySettings;
   if (preset === 'low') q = { ...LOW };
   else if (preset === 'medium') q = { ...MEDIUM };
+  else if (preset === 'ultra') q = { ...ULTRA };
   else q = { ...HIGH_BASE, ...HIGH_LEVELS[Math.max(0, Math.min(HIGH_LEVELS.length - 1, highLevel))] };
   return isTouchPrimary ? mobileTrim(q) : q;
 }

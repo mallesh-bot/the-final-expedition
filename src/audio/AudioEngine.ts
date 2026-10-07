@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export type Bus = 'music' | 'sfx' | 'ambience' | 'ui';
+export type Bus = 'music' | 'sfx' | 'ambience' | 'ui' | 'voice';
 
 /**
  * WebAudio core: context lifecycle, mixing buses, pause ducking, shared noise buffers,
@@ -13,7 +13,9 @@ export class AudioEngine {
   reverb!: ConvolverNode;
   reverbSend!: GainNode;
   noise!: { white: AudioBuffer; pink: AudioBuffer; brown: AudioBuffer };
-  private volumes = { master: 0.85, music: 0.6, sfx: 0.9, ambience: 0.8, ui: 0.7 };
+  private volumes = { master: 0.85, music: 0.6, sfx: 0.9, ambience: 0.8, ui: 0.7, voice: 1.0 };
+  /** Speech ducking (music + ambience dip under dialogue). */
+  private speaking = false;
   private duck = 1;
   private listeners: (() => void)[] = [];
   private fwd = new THREE.Vector3();
@@ -61,7 +63,7 @@ export class AudioEngine {
       g.connect(this.master);
       return g;
     };
-    this.buses = { music: mk(), sfx: mk(), ambience: mk(), ui: mk() };
+    this.buses = { music: mk(), sfx: mk(), ambience: mk(), ui: mk(), voice: mk() };
     this.reverb = ctx.createConvolver();
     this.reverb.buffer = this.makeImpulse(3.2, 2.6);
     this.reverbSend = ctx.createGain();
@@ -83,10 +85,18 @@ export class AudioEngine {
     const t = this.ctx.currentTime;
     const set = (g: GainNode, v: number) => g.gain.setTargetAtTime(v, t, 0.08);
     set(this.master, this.volumes.master);
-    set(this.buses.music, this.volumes.music * (this.duck < 1 ? 0.45 : 1));
+    const talk = this.speaking ? 0.55 : 1;
+    set(this.buses.music, this.volumes.music * (this.duck < 1 ? 0.45 : 1) * talk);
     set(this.buses.sfx, this.volumes.sfx * this.duck);
-    set(this.buses.ambience, this.volumes.ambience * this.duck);
+    set(this.buses.ambience, this.volumes.ambience * this.duck * (this.speaking ? 0.7 : 1));
     set(this.buses.ui, this.volumes.ui);
+    set(this.buses.voice, this.volumes.voice * (this.duck < 1 ? 0 : 1));
+  }
+
+  setSpeaking(on: boolean): void {
+    if (this.speaking === on) return;
+    this.speaking = on;
+    this.applyVolumes();
   }
 
   /** Pause ducking: world audio fades down, UI stays audible. */

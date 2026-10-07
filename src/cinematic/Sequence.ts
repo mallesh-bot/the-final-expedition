@@ -33,6 +33,8 @@ export interface Sequence {
   events: SequenceEvent[];
   /** Seconds to blend from the last shot back to the gameplay camera. */
   blendOut: number;
+  /** Seconds to blend from the gameplay camera into the first shot (default 0.6; 0 = deliberate cut). */
+  blendIn?: number;
   /** Gameplay camera yaw to hand back to (default: keep). */
   exitYaw?: () => number;
   exitPitch?: number;

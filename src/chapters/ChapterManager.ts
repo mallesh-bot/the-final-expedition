@@ -50,14 +50,28 @@ export class ChapterManager {
     this.ctx.traversal.clear();
     this.ctx.world.clear();
     this.ctx.audio.ambience.stop();
+    // Per-level player tuning goes back to defaults.
+    this.ctx.player.killY = -30;
+    this.ctx.player.speedCap = Infinity;
+    this.ctx.camera.hints = [];
     this.ctx.assets.releaseManifest(ch.manifest.id);
     this.ctx.assets.disposeUnused();
   }
 
-  /** Start a chapter fresh (new game or next chapter). */
-  startNew(): void {
+  /**
+   * Start a chapter fresh. With `carry` (moving on from the previous chapter) collectibles,
+   * story flags, solved puzzles and playtime come along; chapter systems start clean.
+   */
+  startNew(carry?: { collectibles: string[]; storyFlags: Record<string, boolean>; completedPuzzles: string[]; playtimeSec: number; dialogue?: string[] }): void {
     const ch = this.current!;
     const snap = emptySnapshot(ch.id, ch.firstCheckpoint);
+    if (carry) {
+      snap.collectibles = [...carry.collectibles];
+      snap.storyFlags = { ...carry.storyFlags };
+      snap.completedPuzzles = [...carry.completedPuzzles];
+      snap.playtimeSec = carry.playtimeSec;
+      if (carry.dialogue) snap.systems.dialogue = { v: 1, data: { played: carry.dialogue } };
+    }
     this.ctx.state.restore(snap);
     ch.onRestored(ch.firstCheckpoint, true);
     this.checkpointSnapshot = this.ctx.state.capture();

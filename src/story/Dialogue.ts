@@ -1,4 +1,4 @@
-export type Speaker = 'INES' | 'TOBY' | 'MARTA' | 'CORWIN' | 'NARRATION';
+export type Speaker = 'INES' | 'TOBY' | 'MARTA' | 'CORWIN' | 'DACE' | 'AYME' | 'NARRATION';
 
 export interface Line {
   speaker: Speaker;
@@ -21,9 +21,23 @@ export class Dialogue {
   private gap = 0;
   onLine: ((l: Line | null) => void) | null = null;
   private played = new Set<string>();
+  /** Voice clip length for a line (set by the game when voice acting is available). */
+  voiceDuration: ((l: Line) => number | null) | null = null;
 
   static durationFor(l: Line): number {
     return l.duration ?? Math.min(7, 1.6 + l.text.length * 0.055);
+  }
+
+  /** On-screen time: the authored/derived duration, never shorter than the spoken line. */
+  durationOf(l: Line): number {
+    const base = Dialogue.durationFor(l);
+    const v = this.voiceDuration?.(l);
+    return v ? Math.max(l.duration ?? 0, v + 0.45) : base;
+  }
+
+  /** Total time a list of lines takes to play (including the gaps between them). */
+  totalDuration(lines: Line[]): number {
+    return lines.reduce((s, l) => s + this.durationOf(l) + 0.35, 0);
   }
 
   say(lines: Line[] | Line, interrupt = false): void {
@@ -83,7 +97,7 @@ export class Dialogue {
     const next = this.queue.shift();
     if (next) {
       this.current = next;
-      this.remaining = Dialogue.durationFor(next);
+      this.remaining = this.durationOf(next);
       this.onLine?.(next);
     }
   }

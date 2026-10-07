@@ -1,0 +1,57 @@
+{
+  "id": "toby",
+  "name": "Toby",
+  "notes": "STORY_BIBLE rev 1.1. Ghanaian-Filipino, 38, tall; round taped glasses, bucket hat, earth tones. Original design; mood references only.",
+  "phenotype": {
+    "gender": 1.0,
+    "age": 0.6,
+    "muscle": 0.5,
+    "weight": 0.6,
+    "proportions": 0.7,
+    "height": 0.6,
+    "cupsize": 0.5,
+    "firmness": 0.5,
+    "race": { "asian": 0.35, "caucasian": 0.0, "african": 0.65 }
+  },
+  "targets": [
+    { "target": "head-round", "value": 0.25 },
+    { "target": "head-fat-incr", "value": 0.1 },
+    { "target": "chin-width-incr", "value": 0.15 },
+    { "target": "mouth-lowerlip-volume-incr", "value": 0.15 },
+    { "target": "mouth-angles-up", "value": 0.15 },
+    { "target": "nose-flaring-incr", "value": 0.15 },
+    { "target": "eyebrows-angle-up", "value": 0.25 },
+    { "target": "l-eye-scale-incr", "value": 0.08 },
+    { "target": "r-eye-scale-incr", "value": 0.08 }
+  ],
+  "skin_mhmat": "middleage_african_male/middleage_african_male.mhmat",
+  "eyes": "high-poly/high-poly.mhclo",
+  "eyebrows": "eyebrow002/eyebrow002.mhclo",
+  "eyelashes": "eyelashes01/eyelashes01.mhclo",
+  "teeth": "teeth_base/teeth_base.mhclo",
+  "tongue": "tongue01/tongue01.mhclo",
+  "hair": "short01/short01.mhclo",
+  "clothes": ["male_casualsuit06/male_casualsuit06.mhclo", "shoes01/shoes01.mhclo"],
+  "rig": "game_engine",
+  "look": {
+    "gear": {
+      "scarf": { "color": [0.5, 0.17, 0.08], "below": 0.03, "gap": 0.0, "reach": 0.085, "offset": 0.02 },
+      "glasses": { "color": [0.02, 0.018, 0.016], "radius": 0.019, "separation": 0.031, "eye_height": 0.47, "forward": 0.012 },
+      "bucket_hat": { "color": [0.62, 0.56, 0.42], "fit": 1.07, "lift": 0.01, "band_height": 0.72, "brim": 0.055, "droop": 0.035 }
+    },
+    "garments": {
+      "body": { "mode": "tint", "color": [1.08, 1.0, 0.95], "Roughness": 0.48, "Specular IOR Level": 0.45 },
+      "short01": { "color": [0.03, 0.025, 0.022], "contrast": 0.9, "Roughness": 0.6 },
+      "eyebrow002": { "color": [0.03, 0.024, 0.02], "contrast": 0.5 },
+      "eyelashes01": { "color": [0.02, 0.017, 0.015], "contrast": 0.5 },
+      "high-poly": { "mode": "iris", "color": [0.14, 0.08, 0.045], "Roughness": 0.15 },
+      "shoes01": { "color": [0.3, 0.19, 0.1], "contrast": 0.85, "Roughness": 0.55 },
+      "blue": { "color": [0.27, 0.29, 0.17], "contrast": 0.6, "flatten": 10, "Roughness": 0.9, "Sheen Weight": 0.12, "Sheen Roughness": 0.6 },
+      "neutral": { "color": [0.6, 0.53, 0.38], "contrast": 0.8, "flatten": 22, "Roughness": 0.88, "Sheen Weight": 0.15, "Sheen Roughness": 0.5 },
+      "neutral_dark": { "color": [0.6, 0.53, 0.38], "contrast": 0.8, "flatten": 22, "Roughness": 0.88, "Sheen Weight": 0.15, "Sheen Roughness": 0.5 },
+      "red": { "color": [0.6, 0.53, 0.38], "contrast": 0.8, "flatten": 22, "Roughness": 0.88 },
+      "brown": { "color": [0.6, 0.53, 0.38], "contrast": 0.8, "flatten": 22, "Roughness": 0.88 },
+      "green": { "color": [0.27, 0.29, 0.17], "contrast": 0.6, "flatten": 10, "Roughness": 0.9 }
+    }
+  }
+}

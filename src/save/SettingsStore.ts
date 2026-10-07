@@ -1,7 +1,7 @@
 import type { BindingMap } from '../input/Bindings';
 import { defaultBindings } from '../input/Bindings';
 
-export type QualityPreset = 'low' | 'medium' | 'high';
+export type QualityPreset = 'low' | 'medium' | 'high' | 'ultra';
 
 export interface Settings {
   version: number;
@@ -10,6 +10,7 @@ export interface Settings {
   musicVolume: number;
   sfxVolume: number;
   ambienceVolume: number;
+  voiceVolume: number;
   mouseSensitivity: number;
   invertY: boolean;
   fov: number;
@@ -30,6 +31,7 @@ export function defaultSettings(): Settings {
     musicVolume: 0.6,
     sfxVolume: 0.9,
     ambienceVolume: 0.8,
+    voiceVolume: 1.0,
     mouseSensitivity: 1,
     invertY: false,
     fov: 60,

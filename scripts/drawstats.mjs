@@ -1,5 +1,6 @@
+import { gpuArgs } from './lib/browser.mjs';
 import { chromium } from 'playwright';
-const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=metal'] });
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: [...gpuArgs()] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 await page.goto('http://localhost:5173/?debug');
 await page.waitForFunction(() => window.__TFE?.state().gameState === 'menu', null, { timeout: 60000 });

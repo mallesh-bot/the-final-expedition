@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { fbm2, mulberry32 } from '../systems/noise';
+import type { BoxCollider, CollisionWorld, Surface } from '../physics/Colliders';
 
 /**
  * Procedural rock geometry: noise-displaced, with baked cavity/height AO in vertex colors so
@@ -82,6 +83,47 @@ export function displacedSlab(seed: number, w: number, h: number, d: number, amp
   return g;
 }
 
+const boundsCache = new WeakMap<THREE.BufferGeometry, THREE.Box3>();
+
+/**
+ * Collision proxy fitted to an instanced rock's real (scaled, yawed) mesh bounds — replaces
+ * hand-guessed radii, which let the player clip into larger boulders and walk through small
+ * ones. Round-ish rocks get a cylinder (smooth sliding); elongated ones a yawed box. Rocks that
+ * barely rise above the terrain get no proxy (the player walks over them).
+ */
+export function addRockCollider(
+  world: CollisionWorld,
+  geo: THREE.BufferGeometry,
+  pos: THREE.Vector3,
+  scale: THREE.Vector3 | number,
+  yaw: number,
+  groundY: number,
+  opts: { surface?: Surface; blocksCamera?: boolean } = {},
+): BoxCollider | null {
+  let bb = boundsCache.get(geo);
+  if (!bb) {
+    if (!geo.boundingBox) geo.computeBoundingBox();
+    bb = geo.boundingBox!.clone();
+    boundsCache.set(geo, bb);
+  }
+  const s = typeof scale === 'number' ? new THREE.Vector3(scale, scale, scale) : scale;
+  const top = pos.y + bb.max.y * s.y * 0.95;
+  const bottom = Math.min(pos.y + bb.min.y * s.y, groundY - 0.2);
+  if (top - groundY < 0.12) return null;
+  // Rounded silhouettes: the mesh only touches its bounding box mid-face, so shrink slightly.
+  const hx = ((bb.max.x - bb.min.x) / 2) * s.x;
+  const hz = ((bb.max.z - bb.min.z) / 2) * s.z;
+  const lx = ((bb.max.x + bb.min.x) / 2) * s.x;
+  const lz = ((bb.max.z + bb.min.z) / 2) * s.z;
+  const c = Math.cos(yaw);
+  const sn = Math.sin(yaw);
+  const center = new THREE.Vector3(pos.x + c * lx + sn * lz, (top + bottom) / 2, pos.z - sn * lx + c * lz);
+  const half = (top - bottom) / 2;
+  const o = { surface: opts.surface ?? 'stone', blocksCamera: opts.blocksCamera ?? true };
+  if (Math.max(hx, hz) / Math.min(hx, hz) < 1.3) return world.addCylinder(center, ((hx + hz) / 2) * 0.88, half, o);
+  return world.addBox(center, new THREE.Vector3(hx * 0.85, half, hz * 0.85), yaw, o);
+}
+
 interface Placement {
   matrix: THREE.Matrix4;
   color: THREE.Color;
@@ -106,9 +148,30 @@ export class InstanceBatch {
     list.push({ matrix: this.m.clone(), color: c });
   }
 
-  build(material: THREE.Material, opts: { castShadow?: boolean; receiveShadow?: boolean; name?: string } = {}): THREE.InstancedMesh[] {
+  /**
+   * One InstancedMesh per geometry — or, with `chunk` (metres), per geometry per XZ cell so
+   * frustum culling and the shadow camera can skip whole regions.
+   */
+  build(material: THREE.Material, opts: { castShadow?: boolean; receiveShadow?: boolean; name?: string; chunk?: number } = {}): THREE.InstancedMesh[] {
     const out: THREE.InstancedMesh[] = [];
-    for (const [geo, list] of this.lists) {
+    const groups: [THREE.BufferGeometry, Placement[]][] = [];
+    const tmp = new THREE.Vector3();
+    for (const [geo, all] of this.lists) {
+      if (!opts.chunk) {
+        groups.push([geo, all]);
+        continue;
+      }
+      const cells = new Map<string, Placement[]>();
+      for (const p of all) {
+        tmp.setFromMatrixPosition(p.matrix);
+        const k = `${Math.floor(tmp.x / opts.chunk)},${Math.floor(tmp.z / opts.chunk)}`;
+        let l = cells.get(k);
+        if (!l) cells.set(k, (l = []));
+        l.push(p);
+      }
+      for (const l of cells.values()) groups.push([geo, l]);
+    }
+    for (const [geo, list] of groups) {
       if (!list.length) continue;
       const im = new THREE.InstancedMesh(geo, material, list.length);
       list.forEach((p, i) => {

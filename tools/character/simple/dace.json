@@ -1,0 +1,19 @@
+{
+  "id": "dace",
+  "name": "Dace",
+  "notes": "Dace Holloway (demolitions foreman). Practical contractor kit: olive-drab work jacket with a leather shoulder guard, charcoal cargo trousers, black boots, buzzed hair. Quaternius CC0 kits, original combination.",
+  "legacy_clips_from": "toby",
+  "outfit": "Male_Ranger",
+  "drop_parts": ["Head_Hood"],
+  "head_from": "Superhero_Male_FullBody",
+  "hair": ["Hair_Buzzed", "Eyebrows_Regular"],
+  "recolor": {
+    "SuperHero_Male": { "mode": "tint", "hue": [0, 360], "min_sat": -1, "color": [0.78, 0.6, 0.48] },
+    "Ranger_Arms": { "hue": [70, 170], "min_sat": 0.15, "color": [0.25, 0.27, 0.17], "contrast": 0.85 },
+    "Ranger_Body": { "hue": [70, 170], "min_sat": 0.15, "color": [0.25, 0.27, 0.17], "contrast": 0.85 },
+    "Ranger_Legs": { "hue": [70, 170], "min_sat": 0.15, "color": [0.12, 0.12, 0.12], "contrast": 0.85 },
+    "Ranger_Feet": { "hue": [5, 50], "min_sat": 0.2, "color": [0.06, 0.055, 0.05], "contrast": 0.9 },
+    "Hair_Buzzed": { "hue": [0, 360], "min_sat": -1, "color": [0.2, 0.15, 0.1], "contrast": 0.9 },
+    "Eyebrows": { "hue": [0, 360], "min_sat": -1, "color": [0.18, 0.13, 0.09], "contrast": 0.8 }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "notes": "Clip sources for every character. Quaternius UAL 1/2 Standard (CC0) live outside the repo (download: quaternius.itch.io, see ASSET_LICENSES.md); 'legacy' = the project's own procedural traversal clips, kept because the game's climb/hang/ledge logic is timed to them.",
+  "sources": {
+    "ual1": "../_tools/quaternius/ual1/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb",
+    "ual1_rm": "../_tools/quaternius/ual1/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard_RM.glb",
+    "ual2": "../_tools/quaternius/ual2/Universal Animation Library 2[Standard]/Unreal-Godot/UAL2_Standard.glb",
+    "legacy": "public/assets/models/temp/{id}_temp.glb"
+  },
+  "aliases": {
+    "legacy": {
+      "Hips": "pelvis", "Spine": "spine_01", "Chest": "spine_03", "Neck": "neck_01", "Head": "head",
+      "UpperArmL": "upperarm_l", "LowerArmL": "lowerarm_l", "HandL": "hand_l",
+      "UpperArmR": "upperarm_r", "LowerArmR": "lowerarm_r", "HandR": "hand_r",
+      "UpperLegL": "thigh_l", "LowerLegL": "calf_l", "FootL": "foot_l",
+      "UpperLegR": "thigh_r", "LowerLegR": "calf_r", "FootR": "foot_r"
+    }
+  },
+  "hips": { "ual1": "pelvis", "ual1_rm": "pelvis", "ual2": "pelvis", "legacy": "Hips" },
+  "clips": {
+    "idle": ["ual1", "Idle_Loop"],
+    "walk": ["ual1", "Walk_Loop"],
+    "run": ["ual1", "Jog_Fwd_Loop"],
+    "sprint": ["ual1", "Sprint_Loop"],
+    "jump": ["ual1", "Jump_Start"],
+    "fall": ["ual1", "Jump_Loop"],
+    "land": ["ual1", "Jump_Land"],
+    "interact": ["ual1", "Interact"],
+    "push": ["ual1", "Push_Loop"],
+    "sit": ["ual1", "Sitting_Idle_Loop"],
+    "talk": ["ual1", "Idle_Talking_Loop"],
+    "look_around": ["ual1", "Idle_Loop"],
+    "climb_up": ["legacy", "climb_up"],
+    "climb": ["legacy", "climb"],
+    "hang": ["legacy", "hang"],
+    "shimmy": ["legacy", "shimmy"],
+    "ledge_step": ["legacy", "ledge_step"],
+    "ledge_idle": ["legacy", "ledge_idle"],
+    "vault": ["legacy", "vault"]
+  },
+  "strides": {
+    "walk": ["ual1_rm", "Walk_Loop"],
+    "run": ["ual1_rm", "Jog_Fwd_Loop"],
+    "sprint": ["ual1_rm", "Sprint_Loop"]
+  }
+}

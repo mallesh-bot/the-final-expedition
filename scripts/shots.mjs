@@ -1,8 +1,9 @@
+import { gpuArgs } from './lib/browser.mjs';
 // Visual review: starts a new game, skips the intro and captures framed screenshots.
 import { chromium } from 'playwright';
 const base = 'http://localhost:5173/?debug';
 const only = process.argv[2];
-const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: [...gpuArgs()] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 const errors = [];
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 1500)); });

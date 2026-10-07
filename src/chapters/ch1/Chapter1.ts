@@ -124,9 +124,12 @@ export default class Chapter1 implements Chapter {
   private menuCurve = new THREE.CatmullRomCurve3(MENU_PATH);
   private menuLook = new THREE.CatmullRomCurve3(MENU_LOOK);
   private shadowSize = 2048;
-  /** Soft cinematic key/fill that follows the camera so the character never vanishes into foliage. */
-  private charLight = new THREE.PointLight(new THREE.Color(1.0, 0.86, 0.7), 3.2, 7, 2);
-  private rimLight = new THREE.PointLight(new THREE.Color(0.75, 0.9, 1.0), 2.2, 5, 2);
+  /**
+   * Subtle character key/rim that follows the camera so she separates from dark foliage. Toned
+   * down for the pipeline characters (real materials; the old values compensated for mannequins).
+   */
+  private charLight = new THREE.PointLight(new THREE.Color(1.0, 0.88, 0.74), 1.1, 6, 2);
+  private rimLight = new THREE.PointLight(new THREE.Color(0.75, 0.9, 1.0), 1.4, 5, 2);
 
   // ================================================================ load
   async load(ctx: ChapterContext, onProgress: (f: number, label: string) => void): Promise<void> {
@@ -172,7 +175,11 @@ export default class Chapter1 implements Chapter {
     this.setupInteractables();
     this.setupCameraHints();
     this.applyQuality(ctx.quality());
+    // Toby reacts (once) to the first lethal fall, after the respawn fade.
+    this.offDied = ctx.events.on('player:died', () => (this.fellOnce = true));
   }
+  private offDied: (() => void) | null = null;
+  private fellOnce = false;
 
   // ================================================================ interactables
   private setupInteractables(): void {
@@ -353,6 +360,10 @@ export default class Chapter1 implements Chapter {
     });
     this.mood = 'explore';
     if (!isNewGame) this.ctx.audio.music.setMood(this.gateOpen ? 'wonder' : 'explore', 2);
+    if (this.fellOnce) {
+      this.fellOnce = false;
+      this.after(1.4, () => dialogue.sayOnce('fallRespawn', CH1.fallRespawn));
+    }
   }
 
   begin(isNewGame: boolean): void {
@@ -398,8 +409,8 @@ export default class Chapter1 implements Chapter {
       this.charLight.position.set(pp.x + (cp.x - pp.x) * 0.45, pp.y + 2.1, pp.z + (cp.z - pp.z) * 0.45);
       this.rimLight.position.set(pp.x - (cp.x - pp.x) * 0.35, pp.y + 2.0, pp.z - (cp.z - pp.z) * 0.35);
       const cine = this.ctx.cinematic.playing ? 0.6 : 1;
-      this.charLight.intensity = 3.2 * cine;
-      this.rimLight.intensity = 2.2 * cine;
+      this.charLight.intensity = 1.1 * cine;
+      this.rimLight.intensity = 1.4 * cine;
     }
     // Fire flicker
     const ft = this.time;
@@ -564,6 +575,7 @@ export default class Chapter1 implements Chapter {
       duration: 16.5,
       skippable: true,
       letterbox: true,
+      blendIn: 0, // starts from the menu fade: a deliberate cut
       dof: true,
       blendOut: 1.8,
       shots: [
@@ -849,13 +861,15 @@ export default class Chapter1 implements Chapter {
       } else if (n === 'far-forest') {
         veg.maxDistance = q.preset === 'low' ? 260 : q.preset === 'medium' ? 450 : 700;
       } else if (n === 'ferns' || n === 'broadleaf') {
-        veg.applyDensity(q.preset === 'low' ? 0.45 : Math.min(1, q.vegetationDensity + 0.2));
+        // Alpha-tested understory is the largest overdraw cost after resolution (profiled).
+        veg.applyDensity(q.preset === 'low' ? 0.3 : Math.min(1, q.vegetationDensity + 0.2));
         veg.maxDistance = q.vegetationDistance * 0.6;
-        // Understory shadows are a HIGH-only luxury (large draw-call cost in the shadow pass).
-        veg.setCastShadow(q.preset === 'high');
+        // Understory shadows are a HIGH/ULTRA luxury (large cost in the shadow pass).
+        veg.setCastShadow(q.preset === 'high' || q.preset === 'ultra');
       } else if (n === 'canopy' || n === 'trunks' || n.startsWith('treefern')) {
         veg.maxDistance = q.vegetationDistance;
         veg.lodDistance = q.vegetationDistance * 0.45;
+        veg.setCastShadow(q.vegetationShadows);
       }
       veg.update(0, this.ctx.renderer.camera.position, true);
     }
@@ -868,6 +882,7 @@ export default class Chapter1 implements Chapter {
     this.ctx.state.unregister(this.puzzle.key);
     this.ctx.state.unregister(this.worldPersist.key);
     this.ctx.camera.hints = [];
+    this.offDied?.();
     this.w.dispose();
   }
 }

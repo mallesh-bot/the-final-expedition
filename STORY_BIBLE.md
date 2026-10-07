@@ -17,8 +17,8 @@ Mysterious, adventurous, grounded. Human-scale heroism: people are brave, fright
 ## 3. Characters
 
 ### Ines Kovač — protagonist
-- **Age:** 36. **Born:** 1990, Rijeka, Croatia; raised in London.
-- **Look:** Lean, climber's shoulders, sun-weathered olive skin, dark auburn hair tied in a low knot, a thin pale scar through her left eyebrow. Olive-drab field jacket with rolled sleeves over a rust-orange base layer, climbing harness, grey-brown cargo trousers, worn leather boots, canvas satchel. Carries her grandmother's unsent letter in a waxed envelope inside her jacket.
+- **Age:** 36. **Born:** 1990, Rijeka, Croatia; raised in London. Mixed heritage: Croatian through her mother's line (Marta → Lena), East Asian through her father. *(Father's specific heritage and name: TBD, owner to confirm.)*
+- **Look (rev. 1.1):** Lean, climber's shoulders and forearms, warm light-tan sun-weathered skin, black hair tied in a loose, messy low bun with strands falling around her face, a calm, direct, slightly guarded expression. A thin pale scar through her left eyebrow. Charcoal-black field jacket with three-quarter sleeves over a deep crimson high-collared base layer; crimson cloth wraps on her forearms and wrists (climber's habit: they protect against rock abrasion); wide dark-leather belt over a climbing harness; dark, loose-fitting trousers tucked into tall worn leather boots; canvas satchel on the hip. Carries her grandmother's unsent letter in a waxed envelope inside her jacket.
 - **Background:** Eleven years with an alpine mountain-rescue team. Left after a recovery she couldn't make in time (a subject she does not discuss). Now works as a freelance archival researcher cataloguing estates — which is how she found the letter.
 - **Personality:** Dry, stubborn, careful, observant. Better with rock than with people. Reads terrain the way other people read faces. Deflects feelings with precise, understated jokes. Never takes a risk she hasn't measured — until this expedition asks her to.
 - **Motivation:** The truth about Marta. Not treasure, not fame. Why did a woman declared dead in 1958 write to her infant daughter in 1961 — and why did that daughter (Ines's mother, Lena) never get to read it?
@@ -26,7 +26,7 @@ Mysterious, adventurous, grounded. Human-scale heroism: people are brave, fright
 
 ### Tobias "Toby" Mensah-Reyes — second lead
 - **Age:** 38. Epigrapher (ancient scripts). Ghanaian-Filipino, raised in Leeds.
-- **Look:** Tall, round spectacles taped at one hinge, short twists under a sun-bleached bucket hat, linen shirt, too many pens, a field notebook held together with rubber bands.
+- **Look (rev. 1.1):** Tall and broad-shouldered but softened by a desk life, round spectacles taped at one hinge, short twists under a sun-bleached khaki bucket hat. Earth-toned expedition layers: a faded khaki linen shirt, sleeves rolled, over an olive undershirt; a rust-red cotton scarf knotted at his neck (sweat rag, sun guard and nervous fidget object); loose olive field trousers; scuffed brown hiking boots; a canvas shoulder bag. Too many pens; a field notebook held together with rubber bands.
 - **Background:** Ines's friend from university (they shared a disastrous first-year caving club trip). Brilliant, underfunded, and one failed grant away from leaving academia. He has spent nine years on the partially-deciphered Ysharu script.
 - **Personality:** Warm, anxious, funny, talks when nervous (constantly). Afraid of heights, which he mentions whenever there is height. Genuinely thrilled by every carved line.
 - **Motivation:** Publish a complete Ysharu decipherment. The Hollow Meridian's inscriptions would make his career — and prove he wasn't wasting his life.
@@ -216,8 +216,117 @@ Ines reseals the Sunlock. The Hollow Meridian remains hidden. Toby publishes the
 
 ---
 
+## 14. Chapters 2–5 & Epilogue — Production Canon (rev 1.2, DRAFT — owner review pending)
+
+> Written to unblock production of the full game. It resolves the open PRD §45 items as proposed there; nothing in §1–§13 is contradicted. Mark anything you want changed and it will be revised.
+
+### 14.1 Resolved review items
+| ID | Resolution |
+|---|---|
+| SB-01 | Page 2 (the sketch) lies at the foot of the cliff route, inside Marta's tin. |
+| SB-02 | Camp Four was the supply camp until mid-June 1958, abandoned the night Edmund fled. |
+| SB-03 | Varne and Marta closed the gate and scrambled the drums to the water-sign in 1958; Marta re-checked it in 1979. |
+| SB-04 | Varne's charges brought down the **overlook stair below the gate**, not the gate itself. Edmund never learned the drums and the Tamsa Alta guides refused to take him back. |
+| SB-05 | Edmund's diaries prove the city but can't open the gate. Toby sold Corwin the route, Marta's letter and the radio schedule; Corwin's crew comes in behind Ines once the gate is open. |
+| SB-06 | Present-day clock. Ch1 is Day 1 at dusk. Ch2 is Day 2 at dawn. Ch3 is Day 2 in the late morning. Ch4 is Day 2 just before noon. Ch5 is Day 2 at noon. The epilogue is five weeks later, in the late afternoon. |
+| SB-07 | At the start of Ch2, Ines fixes a rope from the overlook for Toby. |
+| SB-08 | The "sun tower" is stone, a calendar aperture. The Lens is never visible before Ch5. |
+| SB-09 | Edmund's claimed avalanche date is **4 June 1958**. Marta's plates are dated 9–12 June. |
+| SB-10 | Epilogue order: Tamsa Alta (the photograph), then the publication montage, then the grave (letter V.O.), then the ribbon at the foot of the cliff trail. |
+| SB-12 | No player weapons. Dace is resolved by a set-piece (the sluice) and survives. |
+| SB-13 | The 1979 recording text is written below (§14.7). |
+| SB-14 | Collectible canon text for Ch2–5 and the epilogue is below. |
+
+### 14.2 New minor characters
+- **Doña Ayme Anca** (≈78): Tamsa Alta elder and Teodor Anca's daughter. As a girl she carried bread to "the foreigners who stayed". Quiet, direct, dry like Ines.
+
+### 14.3 Chapter 2: INTO THE UNKNOWN (Day 2, dawn)
+- **Beats:**
+  - Dawn on the overlook terrace. The stair below has been blown away (Varne's charges). Ines fixes a rope for Toby, who will follow "at a heroic distance".
+  - Ines descends the upper terraces: a broken wall climb, a 1958 rope bridge, and an aqueduct beam along the gorge wall.
+  - In a terrace house she finds **Marta's cache**: four developed plates dated after 4 June.
+  - The way down is a water-stair flooded by an overflowing cistern. Ines reads the sluice marks and diverts the water. The counterweight basin fills and the lower door rises.
+  - **Set-piece:** the great aqueduct span cracks under the waterfall's force and collapses behind her as she runs.
+  - The chapter ends at the mouth of the sun-shafts. Toby, on the radio, has reached the terraces.
+- **Collectibles:**
+  - **Plate 41, "The Terrace Kitchens":** *A contact print, sepia, curling at one corner. Hollis, Anselm, Pilar and Teodor at a stone hearth, bowls in hand, squinting into morning light. Pencil on the sleeve: 9 June 1958. Breakfast in a city nobody has eaten in for five hundred years. — M.*
+  - **Plate 43, "The Inner Wall":** *Hollis on a ladder against a carved wall, a lamp in his teeth, copying glyphs into a notebook. Pencil on the sleeve: 11 June. He has not slept. He says the wall is not a prayer, it is an instruction. — M.*
+  - **Plate 44, "Edmund":** *Edmund at the rope bridge, half turned toward the camera, one hand raised to stop the shot. Pencil on the sleeve: 12 June. He asked me not to. I did it anyway. — M.*
+  - **Marta's Cache (note):** *Plates 41 to 44, developed in the dark of the sun-shaft. If these are ever found, someone will already have said we died on the fourth of June. Look at the dates. — M.*
+
+### 14.4 Chapter 3: THE HIDDEN PATH (Day 2, late morning)
+- **Beats:**
+  - The sun-shafts: carved halls lit only by apertures.
+  - Bronze mirrors on pivots redirect the light. The first hall teaches one mirror. The Hall of the Three Houses needs the beam to wake the houses **in the Watcher's order, right hand first**: Rising, Open Eye, Setting.
+  - Between the halls, Ines finds fresh boot prints in the dust and a drilled blast-hole with a 2026 survey tag.
+  - Toby arrives, pale from the rope, and reads the inner wall: *"…so the sky would not drown the valley again."* The Lens is a keystone, not treasure.
+  - The inner wall opens onto the central gorge, and there is a generator hum below.
+- **Collectibles:**
+  - **Hollis Varne, Field Notebook:** *The mirrors are not decoration. Each chamber is a sentence, and the sun is the reader. Rising, the Open Eye, Setting — always from the right hand. Marta says I talk about light the way Edmund talks about money. She is not wrong. — H.V., 30 May 1958.*
+  - **Marta's Journal, "The Mirror Halls":** *Hollis polished the first mirror with his sleeve and the whole hall woke up. I have never photographed anything so quickly in my life. Edmund asked how much bronze there was. — M.*
+  - **Survey Tag:** *A plastic sample tag zip-tied to a drill-hole marker: ALDERCOTT SURVEY LTD · BH-07 · CHARGE POINT · 2026. The dust on it is days old, not decades.*
+  - **Relic, "Ysharu Light-Glass":** *A thumb-sized lens of clear rock crystal, ground so precisely it throws a perfect point of light. Too small to be the Lens. Practice, maybe — or a student's.*
+
+### 14.5 Chapter 4: THE EXPEDITION (Day 2, just before noon)
+- **Beats:**
+  - Corwin's camp sits on the near abutment of the great bridge: floodlights, a generator, a drill rig, and crates stencilled ALDERCOTT SURVEY LTD.
+  - Corwin greets Toby by name, and the deal is revealed. Ines walks away from Toby.
+  - Corwin makes his case with Edmund's diaries. Ines tells him what the wall says. He hears her and does not listen.
+  - Dace has wired the sanctum's upper seal beneath the bridge. Ines runs to stop him and is too late.
+  - **Set-piece:** the blast. The gorge sheds rock and the great bridge breaks span by span. Ines escapes across it, through falling terraces.
+  - The last span goes. Ines catches a ledge, loses everyone, and climbs down alone into the mist.
+- **Collectibles:**
+  - **Sir Edmund Aldercott, Diary:** *3 June 1958. Varne calls it a keystone. I call it proof. A crystal the size of a dinner plate, set in bronze, and he wants to leave it where it is because of a carving. Men like Varne die poor and are forgotten. I will not be forgotten. — E.A.*
+  - **Payment Advice:** *ALDERCOTT SURVEY LTD. Payee: Dr T. Mensah-Reyes. Description: route consultancy, Sael valley, river landing to ridge; radio frequency schedule; copy of private letter (Kovač, 1961). Amount: £18,000. Status: PAID.*
+  - **Hollis Varne, Charge Schedule:** *Six charges under the overlook stair, below the gate. Bring it down behind him; leave the gate standing. Edmund never learned the drums. Without them he will not find the way back, and the guides will not take him. God forgive me for the rest. — H.V., 17 June 1958.*
+  - **Relic, "Brass Datum Disc":** *A survey benchmark hammered into the bridge abutment: A.R. 1958. Anselm Roy marked the bridge's height. Someone has polished it since.*
+
+### 14.6 Chapter 5: THE FINAL EXPEDITION (Day 2, noon)
+- **Beats:**
+  - The flooded antechamber holds Marta's reel-to-reel recorder in a dry niche. Ines plays the 1979 recording (§14.7). Corwin arrives during the last lines and breaks.
+  - In the Sanctum of the Sunlock, Dace lifts the Lens from its ring. The counterweights lurch and the sluices start to fail.
+  - Corwin tackles Dace and the Lens skids across the floor. Dace goes into the spill channel and is swept into the flooded passage (he survives; see epilogue).
+  - **Puzzle under pressure:** Ines re-seats the Lens. The noon beam splits three ways, and each trigger mirror must be turned to its house before the sun passes the meridian.
+    - Toby, roped above and terrified, works the high mirror on Ines's call.
+    - Corwin holds the counterweight lever.
+  - The Sunlock settles, and the three leave through the flooded lower passage Marta described.
+- **Collectibles:**
+  - **Marta's Recording, 1979:** the full transcript (§14.7).
+  - **Film Tin:** *Marta's last roll, never developed. The label: "Sanctum, 1979. For Lena." Ines puts it inside her jacket, next to the letter.*
+  - **Relic, "Knotted Cord":** *A length of red cloth on a brass ring, knotted the same way as the ribbons on the cliff. Left here, not lost.*
+
+### 14.7 Canon: Marta's recording (1979)
+> This is Marta Kovač. It is the twenty-first of June, 1979, a little before noon. The light is coming down the shaft the way it always does — like someone lowering a rope.
+> I came back to check the seal. It holds. Hollis would be pleased; he never trusted anything he hadn't measured twice.
+> If you are hearing this, you came through the gate, so you understand the drums. Then understand this as well.
+> In June of 1958 Edmund Aldercott tried to take the Lens out of the Sunlock. He knew what it held back. Hollis had read him the wall. He did it anyway.
+> We stopped him. Hollis brought the stair down behind him so he could not come back with men and ropes. We let him go. We did not think he would tell the world we were dead. Then we understood it was the kindest lie anyone could tell: nobody digs for the dead.
+> So we stayed. Anselm, Pilar, Teodor, Hollis and I. Tamsa Alta took us in.
+> Lena. My Lena. You are twenty-four now. I wrote to you once. I don't know if Vesna gave it to you. I hope you were angry with me — angry is better than sad, and it lasts less long.
+> I did not stay away because I stopped loving you. I stayed away because forty thousand people live downriver, and somebody had to keep a promise none of them will ever know about.
+> Whoever you are: put it back if you moved it. Close the gate behind you. And if you see the light come down at noon — stand still a minute. It's worth it. — M.
+
+### 14.8 Canon: Marta's letter (1961; read by Ines at Lena's grave)
+> My darling Lena, you are six, and you will not remember me, and that is my fault. They will tell you I died in the mountains. Let them. It is safer than the truth, and the truth is not mine alone to tell. I am well. I am warm. I can see a river from my window, and every morning I think: that water reaches the sea, and the sea reaches you. Be stubborn. Be kind when it costs you something. One day I will explain. Until then — your mother, who has not stopped. — M.
+
+### 14.9 Epilogue: TAMSA ALTA (five weeks later)
+- **Beats:**
+  - Ines walks up through the village to Doña Ayme's house.
+  - Doña Ayme gives her a photograph Marta took of the sealed gate in 1979.
+  - Montage cards, then the grave (letter V.O.).
+  - Ines ties a fresh red ribbon at the foot of the cliff trail, knotted the same way.
+- **Collectible:** **Photograph, "The Sealed Gate, 1979":** *Marta's photograph of the Gate of the Watching Sun, closed. On the back, in the same handwriting as the letter: For whoever comes next. Keep it closed. — M.*
+- **Montage cards:**
+  - Dr Tobias Mensah-Reyes publishes *A Grammar of the Ysharu Script*. The site is described only as "a valley in the Cordillera Velada".
+  - Corwin Aldercott publishes his grandfather's diaries with a statement clearing the families of the 1958 expedition.
+  - Dace Holloway was found alive by Tamsa Alta guides, eleven kilometres downriver. He has not spoken about the valley.
+
+---
+
 ## Revision Log
 
 | Version | Date | Change | Reason |
 |---|---|---|---|
 | 1.0 | 2026-09-27 | Initial locked bible. | Established before Chapter 1 content implementation. |
+| 1.1 | 2026-10-04 | Ines: mixed Croatian/East Asian heritage; black hair in a low messy bun; charcoal jacket, crimson base layer and forearm wraps, tall boots (scar, satchel, harness, letter kept). Toby: earth-toned palette (khaki, olive, rust scarf), traits unchanged. | Owner-approved character redesign. Visual direction is inspired by mood references found online; the designs are original and must not copy those references. Ines's father's heritage remains TBD. |
+| 1.2 | 2026-10-06 | §14 added: production canon for Ch2–5 and the epilogue (beats, collectibles, the 1979 recording, the 1961 letter, montage), resolutions for PRD §45 SB-01…SB-14 (except SB-11), and Doña Ayme Anca. **DRAFT** — owner review pending. | Owner asked for the full game to be built. These gaps blocked production; each resolution follows the PRD §45 proposal. |

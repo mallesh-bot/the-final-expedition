@@ -16,6 +16,8 @@ export interface Interactable {
 export class InteractionSystem {
   private items = new Map<string, Interactable>();
   focused: Interactable | null = null;
+  /** Test/accessibility switch for head look-at. */
+  lookDisabled = false;
   private tmp = new THREE.Vector3();
 
   add(i: Interactable): Interactable {
@@ -55,6 +57,29 @@ export class InteractionSystem {
         this.focused = it;
       }
     }
+  }
+
+  /**
+   * Something worth glancing at: the focused interactable, else the nearest enabled one within
+   * `maxDist` that's roughly in front (head look-at; looser than the interaction cone).
+   */
+  lookCandidate(pos: THREE.Vector3, facing: THREE.Vector3, maxDist = 4.5): THREE.Vector3 | null {
+    if (this.lookDisabled) return null;
+    if (this.focused) return this.focused.position;
+    let best = maxDist;
+    let found: Interactable | null = null;
+    for (const it of this.items.values()) {
+      if (!it.enabled) continue;
+      const d = this.tmp.subVectors(it.position, pos);
+      if (Math.abs(d.y) > 2.5) continue;
+      d.y = 0;
+      const dist = d.length();
+      if (dist > best || dist < 0.4) continue;
+      if (d.normalize().dot(facing) < 0.1) continue;
+      best = dist;
+      found = it;
+    }
+    return found ? found.position : null;
   }
 
   /** Returns true if an interaction consumed the press. */

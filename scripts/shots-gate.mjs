@@ -1,6 +1,7 @@
+import { gpuArgs } from './lib/browser.mjs';
 // Captures the gate-opening and city-reveal cinematics at several moments.
 import { chromium } from 'playwright';
-const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=metal'] });
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: [...gpuArgs()] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 const errs = [];
 page.on('pageerror', (e) => errs.push(e.message));

@@ -47,14 +47,24 @@ export class AdditiveLayers {
     this.lookYaw = damp(this.lookYaw, ty * w, 5, dt);
     this.lookPitch = damp(this.lookPitch, tp * w, 5, dt);
     if (Math.abs(this.lookYaw) + Math.abs(this.lookPitch) > 1e-4) {
-      if (this.bones.neck) {
-        this.e.set(this.lookPitch * 0.4, this.lookYaw * 0.4, 0);
-        this.bones.neck.quaternion.multiply(this.q.setFromEuler(this.e));
-      }
-      if (this.bones.head) {
-        this.e.set(this.lookPitch * 0.6, this.lookYaw * 0.6, 0);
-        this.bones.head.quaternion.multiply(this.q.setFromEuler(this.e));
+      // Rotate in the CHARACTER's frame (yaw about up, pitch about her right axis), then convert
+      // to each bone's parent space: rig-independent (bone-local axes differ between rigs).
+      root.getWorldQuaternion(this.rootQ);
+      for (const [bone, share] of [[this.bones.neck, 0.4], [this.bones.head, 0.6]] as const) {
+        if (!bone || !bone.parent) continue;
+        this.e.set(this.lookPitch * share, this.lookYaw * share, 0, 'YXZ');
+        this.q.setFromEuler(this.e); // rotation in root space
+        this.qWorld.copy(this.rootQ).multiply(this.q).multiply(this.inv.copy(this.rootQ).invert());
+        bone.parent.updateMatrixWorld(true);
+        bone.parent.getWorldQuaternion(this.parentQ);
+        // local' = parent^-1 * world_rot * parent * local
+        this.q.copy(this.parentQ).invert().multiply(this.qWorld).multiply(this.parentQ);
+        bone.quaternion.premultiply(this.q);
+        bone.updateMatrixWorld(true);
       }
     }
   }
+  private rootQ = new THREE.Quaternion();
+  private qWorld = new THREE.Quaternion();
+  private parentQ = new THREE.Quaternion();
 }

@@ -8,11 +8,17 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "assets:check": "node scripts/assets-check.mjs",
+    "test:collision": "node scripts/collision-test.mjs",
+    "test:anim": "node scripts/anim-test.mjs",
     "playtest": "node scripts/playtest.mjs",
     "playtest:mobile": "node scripts/mobile-test.mjs",
     "gen:character": "node scripts/gen-temp-character.mjs",
     "predev": "node scripts/copy-decoders.mjs",
-    "prebuild": "node scripts/copy-decoders.mjs"
+    "prebuild": "node scripts/copy-decoders.mjs",
+    "test:chapters": "node scripts/chapters-test.mjs",
+    "shots:chapter": "node scripts/chapter-shots.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"
@@ -21,6 +27,7 @@
     "@types/three": "^0.186.0",
     "playwright": "^1.63.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.1"
+    "vite": "^8.3.1",
+    "vitest": "^5.0.3"
   }
 }

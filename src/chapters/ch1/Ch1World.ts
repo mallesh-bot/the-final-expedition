@@ -13,7 +13,7 @@ import {
   createWorldMaterial,
 } from '../../render/materials/WorldMaterials';
 import { TerrainTiles } from '../../world/Terrain';
-import { displacedRock, displacedSlab, InstanceBatch } from '../../world/RockKit';
+import { addRockCollider, displacedRock, displacedSlab, InstanceBatch } from '../../world/RockKit';
 import {
   ChunkedInstances,
   broadleafGeometry,
@@ -58,6 +58,9 @@ import {
 } from './layout';
 
 const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+/** Toby's seat placement relative to his crate (metres back along his facing, and height). */
+const TOBY_SIT_BACK = -0.23;
+const TOBY_SIT_LIFT = 0.1;
 
 export interface Ch1World {
   root: THREE.Group;
@@ -261,7 +264,12 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
     if (y1 > 11) {
       for (let x = x0 + 1; x < x1; x += 2.2 + rnd() * 2) {
         if (x > 21 && x < 32) continue; // keep the ridge-top route and climb-up clear
-        rockBatch.add(rocks[Math.floor(rnd() * rocks.length)], v(x, y1 - 0.1, front + 0.3 + rnd() * 0.3), v(0.8 + rnd() * 0.6, 0.5 + rnd() * 0.4, 0.6 + rnd() * 0.3), rnd() * 6, 0.85 + rnd() * 0.25);
+        const geo = rocks[Math.floor(rnd() * rocks.length)];
+        const p = v(x, y1 - 0.1, front + 0.3 + rnd() * 0.3);
+        const sv = v(0.8 + rnd() * 0.6, 0.5 + rnd() * 0.4, 0.6 + rnd() * 0.3);
+        const yaw = rnd() * 6;
+        rockBatch.add(geo, p, sv, yaw, 0.85 + rnd() * 0.25);
+        addRockCollider(world, geo, p, sv, yaw, y1);
       }
     }
   }
@@ -289,8 +297,12 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
     if (m < 0.6) continue;
     const y = terrainHeight(x, z);
     const s = 0.3 + Math.pow(rnd(), 2.5) * 2.4;
-    rockBatch.add(rocks[i % rocks.length], v(x, y - s * 0.25, z), v(s * (0.8 + rnd() * 0.5), s * (0.6 + rnd() * 0.4), s * (0.8 + rnd() * 0.5)), rnd() * 6, 0.75 + rnd() * 0.35);
-    if (s > 0.5) world.addCylinder(v(x, y + (s * 0.55 - 0.5) / 2, z), s * 0.82, (s * 0.55 + 0.5) / 2, { surface: 'stone' });
+    const geo = rocks[i % rocks.length];
+    const p = v(x, y - s * 0.25, z);
+    const sv = v(s * (0.8 + rnd() * 0.5), s * (0.6 + rnd() * 0.4), s * (0.8 + rnd() * 0.5));
+    const yaw = rnd() * 6;
+    rockBatch.add(geo, p, sv, yaw, 0.75 + rnd() * 0.35);
+    addRockCollider(world, geo, p, sv, yaw, y);
   }
   // Boulders around the pool and stream + stepping stones.
   for (let i = 0; i < 14; i++) {
@@ -299,8 +311,11 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
     const x = POOL.x + Math.cos(a) * r;
     const z = POOL.z + Math.sin(a) * r * 0.8;
     const s = 0.6 + rnd() * 1.1;
-    rockBatch.add(rocks[i % rocks.length], v(x, terrainHeight(x, z) - 0.1, z), s, rnd() * 6, 0.7 + rnd() * 0.2);
-    world.addCylinder(v(x, terrainHeight(x, z) + s * 0.3, z), s * 0.85, s * 0.45 + 0.3, { surface: 'stone' });
+    const geo = rocks[i % rocks.length];
+    const p = v(x, terrainHeight(x, z) - 0.1, z);
+    const yaw = rnd() * 6;
+    rockBatch.add(geo, p, s, yaw, 0.7 + rnd() * 0.2);
+    addRockCollider(world, geo, p, s, yaw, terrainHeight(x, z));
   }
   // Cliff-base rubble
   for (let i = 0; i < 40; i++) {
@@ -308,8 +323,12 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
     const z = 20.2 + rnd() * 2.2;
     if (x > 7.5 && x < 12.5) continue;
     const s = 0.4 + rnd() * 1.2;
-    rockBatch.add(rocks[i % rocks.length], v(x, terrainHeight(x, z) - 0.15, z), v(s * 1.2, s * 0.8, s), rnd() * 6, 0.75 + rnd() * 0.2);
-    if (s > 0.55) world.addCylinder(v(x, terrainHeight(x, z) + s * 0.25, z), s * 1.0, s * 0.45 + 0.3, { surface: 'stone' });
+    const geo = rocks[i % rocks.length];
+    const p = v(x, terrainHeight(x, z) - 0.15, z);
+    const sv = v(s * 1.2, s * 0.8, s);
+    const yaw = rnd() * 6;
+    rockBatch.add(geo, p, sv, yaw, 0.75 + rnd() * 0.2);
+    addRockCollider(world, geo, p, sv, yaw, terrainHeight(x, z));
   }
   // Vault column side-blockers on the plateau (so the fallen column must be vaulted).
   const vb = TRAVERSAL.vaults[0];
@@ -422,12 +441,20 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
   place(P.tent(PM, 2, 0.0, false), 6.4, -5.2, -0.34);
   world.addBox(v(6.4, 0.75, -5.2), v(1.3, 0.75, 1.0), -0.34, { surface: 'wood', blocksCamera: false });
   place(P.tent(PM, 3, 0.95, false), -1.5, -15.5, 1.2);
+  // Proxies for props the player can't step over (kept slightly above step height so they block).
+  const propBox = (x: number, z: number, hx: number, hy: number, hz: number, yaw: number, surface: 'wood' | 'metal' | 'stone' = 'wood') =>
+    world.addBox(v(x, terrainHeight(x, z) + hy, z), v(hx, hy, hz), yaw, { surface, blocksCamera: false });
+  propBox(-1.5, -15.5, 1.3, 0.35, 1.0, 1.2);
   place(P.cot(PM, true), 4.4, -3.4, 0.9);
+  propBox(4.4, -3.4, 0.95, 0.24, 0.36, 0.9);
   place(P.cot(PM, false), -5.2, -9.6, -0.3);
+  propBox(-5.2, -9.6, 0.95, 0.25, 0.36, -0.3);
   place(P.table(PM), 0.6, -10.8, 0.15);
   world.addBox(v(0.9, 0.38, -10.8), v(0.95, 0.38, 0.45), 0.15, { surface: 'wood' });
   place(P.stove(PM), 3.4, -8.0, -0.6);
+  propBox(3.4, -8.0, 0.26, 0.25, 0.2, -0.6, 'metal');
   place(P.campfire(PM, rockMat, false), 4.2, -10.6, 0);
+  world.addCylinder(v(4.2, terrainHeight(4.2, -10.6) + 0.3, -10.6), 0.58, 0.3, { surface: 'stone', blocksCamera: false });
   // Crate stacks — stencilled ALDERCOTT 1958, chalked DO NOT SHIP.
   const crates: [number, number, number, number, 'aldercott' | 'dns' | 'both' | 'none', boolean][] = [
     [7.4, -12.2, 0, 0.1, 'both', false],
@@ -463,14 +490,17 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
 
   // ================================================================== landing (Toby, fire, boat)
   const fire = place(P.campfire(PM, rockMat, true), LANDING_FIRE.x, LANDING_FIRE.z, 0);
+  world.addCylinder(v(LANDING_FIRE.x, terrainHeight(LANDING_FIRE.x, LANDING_FIRE.z) + 0.3, LANDING_FIRE.z), 0.58, 0.3, { surface: 'stone', blocksCamera: false });
   const flames = fire.getObjectByName('flames') ?? null;
   const fireLight = new THREE.PointLight(new THREE.Color(1.0, 0.6, 0.3), 14, 16, 2);
   fireLight.position.copy(LANDING_FIRE).add(v(0, 0.8, 0));
   fireLight.castShadow = false;
   root.add(fireLight);
   place(P.canoe(PM), -6, -65.6, 0.25, -0.45);
-  const seat = place(P.crate(PM, 0.7, 0.45, 0.5, 'aldercott'), TOBY_SEAT.x, TOBY_SEAT.z, -0.9);
-  void seat;
+  // Toby's seat: long side (0.7 m) runs along his facing so his thighs fit and his shins hang in front.
+  place(P.crate(PM, 0.7, 0.45, 0.5, 'aldercott'), TOBY_SEAT.x, TOBY_SEAT.z, Math.atan2(LANDING_FIRE.x - TOBY_SEAT.x, LANDING_FIRE.z - TOBY_SEAT.z) + Math.PI / 2);
+  // Toby + his crate: the player walks around him, not through him.
+  world.addCylinder(v(TOBY_SEAT.x, terrainHeight(TOBY_SEAT.x, TOBY_SEAT.z) + 0.6, TOBY_SEAT.z), 0.5, 0.6, { surface: 'wood', blocksCamera: false });
   place(P.crate(PM, 0.8, 0.5, 0.6, 'none'), 4, -60.2, 0.4);
   const lantern = place(P.lantern(PM, true), 4, -60.2, 0, 0.5);
   const lanternLight = new THREE.PointLight(new THREE.Color(1.0, 0.72, 0.4), 4, 9, 2);
@@ -484,8 +514,12 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
   let toby: THREE.Object3D | null = null;
   {
     const t = ctx.createAvatar('toby');
-    t.root.position.copy(TOBY_SEAT).setY(terrainHeight(TOBY_SEAT.x, TOBY_SEAT.z) + 0.02);
-    t.root.rotation.y = Math.atan2(LANDING_FIRE.x - TOBY_SEAT.x, LANDING_FIRE.z - TOBY_SEAT.z);
+    // Sit on the back half of the crate: knees at its front edge, shins hanging in front of it
+    // (centred, the sit clip's lower legs went straight through the crate).
+    const yaw = Math.atan2(LANDING_FIRE.x - TOBY_SEAT.x, LANDING_FIRE.z - TOBY_SEAT.z);
+    const back = TOBY_SIT_BACK;
+    t.root.position.set(TOBY_SEAT.x - Math.sin(yaw) * back, terrainHeight(TOBY_SEAT.x, TOBY_SEAT.z) + TOBY_SIT_LIFT, TOBY_SEAT.z - Math.cos(yaw) * back);
+    t.root.rotation.y = yaw;
     t.driver.setState('SIT', { fade: 0.01 });
     root.add(t.root);
     toby = t.root;

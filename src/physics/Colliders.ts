@@ -171,7 +171,8 @@ export class CollisionWorld {
   resolveCylinder(pos: THREE.Vector3, radius: number, feetY: number, headY: number, out?: THREE.Vector3): boolean {
     let hit = false;
     out?.set(0, 0, 0);
-    for (let iter = 0; iter < 3; iter++) {
+    // Iterate until clear: wedged between two colliders, each push can re-enter the other.
+    for (let iter = 0; iter < 8; iter++) {
       let any = false;
       for (const b of this.query(pos.x - radius - 1, pos.z - radius - 1, pos.x + radius + 1, pos.z + radius + 1)) {
         const bMin = b.center.y - b.half.y;

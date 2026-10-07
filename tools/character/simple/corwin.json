@@ -1,0 +1,19 @@
+{
+  "id": "corwin",
+  "name": "Corwin",
+  "notes": "Corwin Aldercott (antagonist, 52). Expensive expedition gear worn like a suit: navy-charcoal field jacket, stone trousers, polished brown boots; silver hair and neat grey beard. Quaternius CC0 kits, original combination.",
+  "legacy_clips_from": "toby",
+  "outfit": "Male_Ranger",
+  "drop_parts": ["Head_Hood", "Acc_Pauldron"],
+  "head_from": "Superhero_Male_FullBody",
+  "hair": ["Hair_SimpleParted", "Hair_Beard", "Eyebrows_Regular"],
+  "recolor": {
+    "Ranger_Arms": { "hue": [70, 170], "min_sat": 0.15, "color": [0.13, 0.16, 0.21], "contrast": 0.85 },
+    "Ranger_Body": { "hue": [70, 170], "min_sat": 0.15, "color": [0.13, 0.16, 0.21], "contrast": 0.85 },
+    "Ranger_Legs": { "hue": [70, 170], "min_sat": 0.15, "color": [0.52, 0.48, 0.39], "contrast": 0.8 },
+    "Ranger_Feet": { "hue": [5, 50], "min_sat": 0.2, "color": [0.3, 0.17, 0.09], "contrast": 0.9 },
+    "Hair_SimpleParted": { "hue": [0, 360], "min_sat": -1, "color": [0.5, 0.5, 0.5], "contrast": 0.9 },
+    "Hair_Beard": { "hue": [0, 360], "min_sat": -1, "color": [0.42, 0.41, 0.4], "contrast": 0.9 },
+    "Eyebrows": { "hue": [0, 360], "min_sat": -1, "color": [0.3, 0.29, 0.28], "contrast": 0.8 }
+  }
+}

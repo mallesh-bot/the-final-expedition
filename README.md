@@ -6,11 +6,11 @@
 
 ![The Final Expedition — main menu](docs/screenshots/main-menu.jpg)
 
-`Chapter 1 of 5 · Vertical slice` · `Three.js` · `TypeScript` · `WebGL 2` · `100% original, procedurally generated assets`
+`5 chapters + epilogue` · `Three.js` · `TypeScript` · `WebGL 2` · `Original story · procedural world · CC0 characters`
 
 </div>
 
-> 🚧 **Early build — v0.1 (Chapter 1 vertical slice).** This is just the first version of the game. More chapters, characters and features are loading… stay tuned. ⏳
+> 🧭 **v0.2: the whole story is playable**, from the river landing to the last ribbon: five chapters and an epilogue. Chapter 1 is the most polished; Chapters 2–5 and the epilogue are complete and tested end to end, and visual polish continues.
 
 ---
 
@@ -29,6 +29,8 @@ npm run dev        # open http://localhost:5173
 
 Click **New Expedition**, then click inside the game to capture the mouse. Headphones are recommended, because all of the sound is spatial and procedurally synthesized.
 
+When a chapter ends, **Continue** takes you into the next one with your finds carried over. **Chapters** on the main menu lists every chapter you have reached. To open them all straight away, use `http://localhost:5173/?chapters=all`.
+
 <details>
 <summary>Other commands</summary>
 
@@ -36,7 +38,15 @@ Click **New Expedition**, then click inside the game to capture the mouse. Headp
 |---|---|
 | `npm run build` | Type-check + production build to `dist/` |
 | `npm run preview` | Serve the production build |
-| `npm run playtest` | Automated end-to-end playthrough in headless Chrome (needs `npm run dev` running) |
+| `npm test` | Unit tests (Vitest) |
+| `npm run playtest` | Automated end-to-end playthrough in headless Chrome (needs `npm run dev` running; set `TFE_URL` if not on port 5173) |
+| `npm run test:collision` | Collision and camera integrity checks, including a 3,000-move collision sweep (needs `npm run dev`) |
+| `npm run test:anim` | Foot IK on slopes + head look-at checks (needs `npm run dev`) |
+| `npm run test:chapters` | Automated playthroughs of Chapters 2–5 and the epilogue, plus chapter-to-chapter flow (needs `npm run dev`) |
+| `node tools/voice/generate.mjs` | Re-voice changed or new dialogue lines with Kokoro-82M (needs `kokoro-js` installed in `../_tools/voice`; only changed lines are regenerated) |
+| `node scripts/hero-frames.mjs <id> [preset]` | Capture a chapter's PRD §55 hero frames (no UI) plus per-frame draw/triangle counts |
+| `node scripts/softlock-test.mjs` | Force a death at every checkpoint of Chapters 2–5 + epilogue and verify the respawn |
+| `npm run shots:chapter -- <id>` | Screenshot every checkpoint of a chapter into `playtest-output/` |
 | `npm run gen:character` | Regenerate the temporary character models |
 | `http://localhost:5173/?debug` | FPS / draw-call overlay + automation hooks |
 
@@ -46,7 +56,16 @@ Click **New Expedition**, then click inside the game to capture the mouse. Headp
 
 ## 🎬 About the Game
 
-*The Final Expedition* is a story-driven exploration and traversal adventure: climbing, ancient puzzles, and cinematic moments. **Chapter 1, "The Discovery", is fully playable from start to finish.**
+*The Final Expedition* is a story-driven exploration and traversal adventure: climbing, ancient puzzles, and cinematic moments. **The whole game is playable from start to finish.**
+
+| | Chapter | What happens |
+|---|---|---|
+| 1 | **The Discovery** | Dusk. The river landing, the abandoned 1958 Camp Four, the red-rock cliff, and the Gate of the Watching Sun (drum puzzle). |
+| 2 | **Into the Unknown** | Dawn on the city's upper terraces. Rappel, a wall climb, a 1958 rope bridge, an aqueduct ledge, Marta's photo cache, a sluice-gate puzzle, and the aqueduct collapsing under your feet. |
+| 3 | **The Hidden Path** | Inside the sun-shafts. Bronze mirrors and beams of real sunlight, the Hall of the Three Houses, fresh boot prints, a drilled charge-hole. Toby joins you and reads the inner wall. |
+| 4 | **The Expedition** | Corwin's camp on the great bridge, the betrayal, Dace's blast, and an escape across a bridge breaking span by span through rockfall. |
+| 5 | **The Final Expedition** | Marta's 1979 recording. Dace takes the Lens, and the Sunlock starts to fail: re-seat the Lens and aim three beams home before the sanctum floods, with Toby on a rope working the high mirror. |
+| — | **Epilogue: Tamsa Alta** | The highland village, Doña Ayme and Marta's photograph, the letter, and a new ribbon at the foot of the trail. |
 
 **The objective:** follow the trail of the 1958 expedition through the valley and reach whatever they were looking at on the ridge.
 
@@ -86,15 +105,20 @@ The whole story, including characters, history, the artifact, the ending and unr
   - acceleration and turning, sprint;
   - jump with coyote time and input buffering;
   - fall and landing states;
-  - a custom kinematic capsule with step-up, ground snapping and slope limits.
+  - a custom kinematic capsule with step-up, ground snapping and slope limits;
+  - frame-rate-independent simulation: substepped at ≤ 1/60 s, so it behaves the same at 15, 60 or 144 FPS.
 - 🧱 **Collision:**
-  - authored collision proxies: boxes for walls, ruins and props, cylinders for trunks and boulders;
-  - smooth sliding along obstacles;
+  - authored collision proxies: boxes for walls, ruins and props, cylinders for trunks;
+  - boulder proxies fitted automatically to each rock's real mesh bounds;
+  - smooth sliding along obstacles, and refuses to enter gaps narrower than the player;
+  - teleports and landings always push the player clear of geometry;
+  - verified by an automated sweep of 3,000 moves against every collider (worst overlap ≤ 1 cm);
   - decorative foliage deliberately has no colliders.
 - 📷 **Third-person camera:**
   - shoulder offset;
   - lag on following you;
-  - a multi-ray spring arm that pulls in smoothly when an obstacle is in the way;
+  - a multi-ray spring arm that pulls in smoothly when an obstacle is in the way, plus a shoulder probe so it never ends up behind a wall;
+  - eased blends into and out of cinematics;
   - different framing for exploring, climbing and ledges;
   - wider field of view while sprinting;
   - camera shake.
@@ -124,8 +148,11 @@ The whole story, including characters, history, the artifact, the ending and unr
   - height fog that glows toward the sun;
   - fake volumetric light shafts, a procedural sky, and dynamic sun shadows.
 - 💧 **Water:** a scrolling-normal river and pool, and a layered waterfall with falling droplets, splash, mist and ripples on the pool.
-- ⚙️ **Graphics presets LOW / MEDIUM / HIGH:**
-  - HIGH is adaptive: it steps its quality down, and back up, with the real frame rate;
+- ⚙️ **Graphics presets LOW / MEDIUM / HIGH / ULTRA:**
+  - every preset uses **dynamic resolution** to hold its frame-time target (LOW 30 fps, MEDIUM 50, HIGH/ULTRA 60);
+  - LOW cuts the real costs found by profiling: resolution, alpha-tested foliage overdraw and tree shadows;
+  - HIGH is also adaptive: it steps shadows and AO down, and back up, with the real frame rate;
+  - ULTRA is opt-in and experimental, for powerful GPUs;
   - on first launch, a default preset is picked from a check of your GPU.
 - 🚀 **Performance:**
   - instanced, chunked vegetation that switches to simpler models with distance;
@@ -133,7 +160,13 @@ The whole story, including characters, history, the artifact, the ending and unr
   - merged static props;
   - GPU-animated particles;
   - chapters loaded only when needed.
-  - Measured at ~60 fps on an Apple M5 with 270–340 draw calls, depending on the preset.
+  - Measured performance (always quoted with hardware, resolution and preset):
+
+    | Machine | Preset | Resolution | FPS |
+    |---|---|---|---|
+    | Intel UHD Graphics laptop (Windows, Chrome/D3D11) | LOW | 1280×720 | 31–43 (dynamic res 63–71%) |
+    | Intel UHD Graphics laptop | MEDIUM / HIGH | 1280×720 | 17–27 (below target: these presets are meant for mid/high-end GPUs) |
+    | Apple M5 (earlier build) | HIGH | — | ~60 |
 - ⚙️ **Settings:**
   - graphics: quality, field of view, camera shake, minimap, subtitles;
   - audio: master, music, effects and ambience volume;
@@ -156,7 +189,9 @@ The whole story, including characters, history, the artifact, the ending and unr
 | Pause | `Esc` or `P` |
 | Skip cinematic | Hold `Space` |
 
-All keys except `Esc` can be rebound in **Settings → Controls**. *Gamepad support is not implemented yet.*
+All keys except `Esc` can be rebound in **Settings → Controls**.
+
+**Gamepad** (standard mapping: Xbox, PlayStation and most others): left stick moves, right stick looks, **A/Cross** jump, **X/Square** interact, **B/Circle** let go, **LB or L3** sprint, **Start** pause, **Back/Share** journal. Hold **A** to skip cinematics.
 
 ---
 
@@ -266,9 +301,10 @@ Chapter 1 takes place in the lower Sael valley at dusk, just after rain. It is a
 | **HTML / CSS** | Menus, HUD, subtitles, journal, settings and minimap (a 2D canvas). |
 | **localStorage** | Versioned save slots and settings. There is no backend. |
 | **Node.js** | `scripts/gen-temp-character.mjs` builds the rigged, animated character GLBs using Three.js' `GLTFExporter`. |
-| **Playwright** *(dev only)* | An automated end-to-end playtest (51 checks) plus screenshot and performance scripts, all run in installed Chrome. |
+| **Playwright** *(dev only)* | An automated Chapter 1 playtest (52 checks), a collision test (14 checks), animation checks (5), playthroughs of every later chapter (Chapters 2–5 + epilogue, 56 checks), and a chapter-flow test (8), plus screenshot and performance scripts. They run in installed Chrome with the right GPU backend for each OS, and wait in *game* time, so results don't depend on GPU speed. |
+| **Vitest** *(dev only)* | Unit tests for the motor, collision, puzzle, traversal data, input, cinematics and quality systems (`npm test`). |
 
-**Everything visible and audible is generated by project code:** textures, terrain, vegetation, ruins, props, characters, sound and music. No third-party art or audio is used; see [`ASSET_LICENSES.md`](ASSET_LICENSES.md).
+**Everything visible and audible is generated by project code** (textures, terrain, vegetation, ruins, props, sound and music), **except the characters and the voices**. Every line of dialogue is voiced. The performances are synthesized offline with the open Kokoro-82M voice model (Apache-2.0) by `tools/voice/generate.mjs`. Those are assembled from Quaternius' CC0 character kits by the Blender pipeline in `tools/character/`. See [`ASSET_LICENSES.md`](ASSET_LICENSES.md).
 
 ---
 
@@ -294,14 +330,18 @@ the-final-expedition/
 └── src/
     ├── main/          # boot, Game loop & state machine, pausable GameClock
     ├── chapters/      # Chapter interface, ChapterManager, registry
-    │   └── ch1/       # "The Discovery": layout, world build, gorge city, logic & cinematics
+    │   ├── common/    # ChapterBase (shared chapter plumbing) + LevelKit (level-building toolbox)
+    │   ├── ch1/       # "The Discovery": layout, world build, gorge city, logic & cinematics
+    │   ├── ch2/ … ch5/  # "Into the Unknown" … "The Final Expedition"
+    │   └── epilogue/  # "Tamsa Alta"
+    ├── actors/        # NPC actors (walk paths, follow routes, poses)
     ├── player/        # player controller + traversal state machine
     ├── physics/       # heightfield, collision world, kinematic character motor
     ├── traversal/     # authored climb surfaces, ledges, narrow ledges, vaults, jumps
     ├── camera/        # third-person camera rig
     ├── cinematic/     # sequences + cinematic director
     ├── animation/     # asset-agnostic animation driver, additive layers, avatar
-    ├── puzzles/       # puzzle base + rotating drums
+    ├── puzzles/       # puzzle base, rotating drums, sluice toggles, light-beam mirrors
     ├── interaction/   # contextual "E" interactions
     ├── story/         # dialogue system, collectibles, chapter dialogue
     ├── render/        # renderer, post-FX, sky, height fog, materials, procedural textures
@@ -320,10 +360,9 @@ the-final-expedition/
 
 ## 🧭 Roadmap & Known Limitations
 
-- **Chapters 2–5** (*Into the Unknown*, *The Hidden Path*, *The Expedition*, *The Final Expedition*): the story is written in the bible, but the levels aren't built yet. Continuing past Chapter 1 shows an "in development" card.
-- **Gamepad support** has an extension point in the input system, but does nothing yet.
-- **Characters** are temporary, generated models: no facial animation, and feet don't adjust to slopes. You can swap them by changing `src/assets/characters.json`.
-- **No voice acting:** dialogue is subtitles only, with a radio sound.
+- **Story drafts:** the Chapter 2–5 and epilogue beats, collectible text, Marta's recording and the letter are logged in `STORY_BIBLE.md` §14 as rev 1.2 **drafts** awaiting the owner's review.
+- **Visual polish:** Chapter 1 has had the most polish. The later chapters use the same systems and materials, but their hero assets (sculpted cliffs, bespoke props) are still procedural blockouts.
+- **Characters** come from the stylised Quaternius kits and have no facial animation.
 - **Browsers:** tested in Chrome. Firefox and Safari have not been verified.
 
 <div align="center">

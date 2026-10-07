@@ -1,0 +1,17 @@
+{
+  "id": "ines",
+  "name": "Ines",
+  "notes": "Simple stylised Ines (Quaternius CC0 kits). Mood: image 2 (dark layers, crimson accents, black bun). Original combination, not a copy.",
+  "outfit": "Female_Ranger",
+  "drop_parts": ["Head_Hood", "Acc_Pauldrons"],
+  "head_from": "Superhero_Female_FullBody",
+  "hair": ["Hair_Buns", "Eyebrows_Female"],
+  "recolor": {
+    "Ranger_Arms": { "hue": [70, 170], "min_sat": 0.15, "color": [0.52, 0.06, 0.06], "contrast": 0.9 },
+    "Ranger_Body": { "hue": [70, 170], "min_sat": 0.15, "color": [0.11, 0.105, 0.11], "contrast": 0.9 },
+    "Ranger_Legs": { "hue": [70, 170], "min_sat": 0.15, "color": [0.09, 0.085, 0.09], "contrast": 0.9 },
+    "Ranger_Feet": { "hue": [5, 50], "min_sat": 0.2, "color": [0.2, 0.12, 0.075], "contrast": 0.9 },
+    "Hair_Buns": { "hue": [0, 360], "min_sat": -1, "color": [0.07, 0.06, 0.055], "contrast": 0.9 },
+    "Eyebrows": { "hue": [0, 360], "min_sat": -1, "color": [0.06, 0.05, 0.045], "contrast": 0.8 }
+  }
+}

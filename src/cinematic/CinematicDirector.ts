@@ -40,6 +40,8 @@ export class CinematicDirector {
   private blending = false;
   private blendDur = 1;
   private blendT = 0;
+  private blendIn = 0;
+  private blendFrom = 0;
   private cine = { position: new THREE.Vector3(), quaternion: new THREE.Quaternion(), fov: 50, focus: 10 };
   private m = new THREE.Matrix4();
   letterbox = 0;
@@ -68,10 +70,13 @@ export class CinematicDirector {
 
   play(seq: Sequence): Promise<boolean> {
     if (this.seq) this.finish(true);
+    // Blend in from wherever the camera currently is (a blend-out in progress counts as "cinematic").
+    this.blendIn = seq.blendIn ?? 0.6;
+    this.blendFrom = this.blending ? this.blend : 0;
     this.seq = seq;
     this.t = 0;
     this.fired.clear();
-    this.blend = 1;
+    this.blend = this.blendIn > 0 ? this.blendFrom : 1;
     this.blending = false;
     this.resolved = seq.shots.map((shot) => {
       const points = shot.path.map(resolve);
@@ -92,6 +97,20 @@ export class CinematicDirector {
     if (this.seq?.skippable) this.finish(true);
   }
 
+  /**
+   * Drop everything immediately without running pending events (leaving to the main menu or a
+   * chapter change): no letterbox, no blend, no stray world-state changes.
+   */
+  reset(): void {
+    const r = this.resolve;
+    this.seq = null;
+    this.blending = false;
+    this.blend = 0;
+    this.letterbox = 0;
+    this.resolve = null;
+    r?.(true);
+  }
+
   update(dt: number): void {
     this.letterbox = damp(this.letterbox, this.seq?.letterbox ? 1 : 0, 3, dt);
     if (this.seq) {
@@ -102,12 +121,16 @@ export class CinematicDirector {
           e.run(false);
         }
       });
+      if (this.blendIn > 0) {
+        const k = clamp(this.t / this.blendIn, 0, 1);
+        this.blend = this.blendFrom + (1 - this.blendFrom) * k * k * (3 - 2 * k);
+      }
       if (this.t >= this.seq.duration) this.finish(false);
       else this.evaluate();
     } else if (this.blending) {
       this.blendT += dt;
       const k = clamp(this.blendT / this.blendDur, 0, 1);
-      this.blend = 1 - (k * k * (3 - 2 * k));
+      this.blend = this.blendFrom * (1 - k * k * (3 - 2 * k));
       if (k >= 1) {
         this.blending = false;
         this.blend = 0;
@@ -130,6 +153,7 @@ export class CinematicDirector {
       this.evaluate();
     }
     this.seq = null;
+    this.blendFrom = this.blend;
     this.blending = true;
     this.blendT = 0;
     this.blendDur = skipped ? Math.min(0.6, s.blendOut) : Math.max(0.05, s.blendOut);

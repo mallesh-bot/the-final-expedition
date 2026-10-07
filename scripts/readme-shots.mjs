@@ -1,7 +1,8 @@
+import { gpuArgs } from './lib/browser.mjs';
 // Captures the README screenshots (debug overlay hidden) into docs/screenshots/.
 import { chromium } from 'playwright';
 const out = 'docs/screenshots';
-const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=metal'] });
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: [...gpuArgs()] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 await page.goto('http://localhost:5173/?debug');
 await page.evaluate(() => localStorage.clear());

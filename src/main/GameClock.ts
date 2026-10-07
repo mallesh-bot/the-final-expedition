@@ -12,7 +12,11 @@ export class GameClock {
   timeScale = 1;
   private paused = false;
   private last = performance.now();
-  private readonly maxDelta = 1 / 20;
+  /** Largest simulation step; frames longer than this are split into substeps by the game loop. */
+  static readonly STEP = 1 / 60;
+  /** Max substeps per frame: simulation keeps real-time pace down to 15 FPS, then slows (no spiral of death). */
+  static readonly MAX_SUBSTEPS = 4;
+  private readonly maxDelta = GameClock.STEP * GameClock.MAX_SUBSTEPS;
 
   get isPaused(): boolean {
     return this.paused;

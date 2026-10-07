@@ -18,16 +18,16 @@ import { TraversalSystem } from '../traversal/TraversalSystem';
 import { InteractionSystem } from '../interaction/InteractionSystem';
 import { Player } from '../player/Player';
 import { CharacterAvatar, characterDef } from '../animation/CharacterAvatar';
-import { CameraRig } from '../camera/CameraRig';
+import { AVATAR_HIDE_ARM, CameraRig } from '../camera/CameraRig';
 import { CinematicDirector } from '../cinematic/CinematicDirector';
 import { Dialogue } from '../story/Dialogue';
-import { collectible } from '../story/Collectibles';
+import { COLLECTIBLES, KIND_LABEL, collectible } from '../story/Collectibles';
 import { AudioEngine } from '../audio/AudioEngine';
 import { Sfx } from '../audio/Sfx';
 import { Ambience } from '../audio/Ambience';
 import { AdaptiveMusic } from '../audio/AdaptiveMusic';
 import { ChapterManager } from '../chapters/ChapterManager';
-import { chapterEntry } from '../chapters/ChapterRegistry';
+import { CHAPTERS, CHAPTER_OUTROS, LAST_CHAPTER, chapterEntry } from '../chapters/ChapterRegistry';
 import type { ChapterContext } from '../chapters/Chapter';
 import { LoadingScreen } from '../ui/LoadingScreen';
 import { MainMenu } from '../ui/MainMenu';
@@ -36,9 +36,11 @@ import { SettingsMenu } from '../ui/SettingsMenu';
 import { HUD } from '../ui/HUD';
 import { JournalView } from '../ui/JournalView';
 import { EndCard } from '../ui/EndCard';
+import { VoiceBank } from '../audio/VoiceBank';
 import { PerfMonitor } from '../systems/PerfMonitor';
 import { probeGpu, resolveQuality, type GpuProbe, type QualitySettings } from '../systems/Quality';
 import { damp } from '../systems/noise';
+import { DynamicResolution } from '../systems/DynamicResolution';
 import type { Persistable } from '../state/Persistable';
 
 export type GameState = 'boot' | 'menu' | 'playing' | 'paused' | 'journal' | 'transition' | 'ended';
@@ -47,6 +49,13 @@ export type GameState = 'boot' | 'menu' | 'playing' | 'paused' | 'journal' | 'tr
  * Top-level orchestrator: owns every engine system, the frame loop, the game-state machine
  * (menu / playing / paused / journal / transitions), settings application and save I/O.
  */
+const CREDITS = [
+  'Story, design, code and procedural art: The Final Expedition team.',
+  'Characters: Quaternius — Universal Base Characters, Modular Character Outfits, Universal Animation Library (CC0).',
+  'Voices: performed with Kokoro-82M (Apache-2.0), generated locally.',
+  'Built with three.js (MIT). All other textures, sounds and music are generated in the browser.',
+].join(' ');
+
 export class Game {
   readonly clock = new GameClock();
   readonly events = new EventBus();
@@ -63,8 +72,11 @@ export class Game {
   readonly dialogue = new Dialogue();
   readonly audio = new AudioEngine();
   readonly sfx: Sfx;
+  readonly voice: VoiceBank;
   readonly ambience: Ambience;
   readonly music: AdaptiveMusic;
+  /** Holds the preset's frame-time target by scaling render resolution. */
+  readonly dynres: DynamicResolution;
   camera!: CameraRig;
   player!: Player;
   chapters!: ChapterManager;
@@ -100,20 +112,25 @@ export class Game {
 
   constructor(private canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
     this.renderer = new Renderer(canvas);
+    this.dynres = new DynamicResolution((s) => this.renderer.setDynamicScale(s));
     this.assets = new AssetManager(this.renderer.renderer);
     this.cinematic = new CinematicDirector(this.events);
     this.sfx = new Sfx(this.audio);
+    this.voice = new VoiceBank(this.audio);
     this.ambience = new Ambience(this.audio);
     this.music = new AdaptiveMusic(this.audio);
     this.kbm = new KeyboardMouseProvider(canvas, () => this.settings.value.bindings);
     this.input.add(this.kbm);
-    this.input.add(new GamepadProvider()); // STUB provider (no-op), proves the extension point.
+    const pad = new GamepadProvider();
+    pad.onButton = (b) => this.onKey(b === 'pause' ? this.settings.value.bindings.pause[0] : this.settings.value.bindings.journal[0]);
+    this.input.add(pad);
     const hover = () => this.sfx.uiHover();
     this.ui = {
       loading: new LoadingScreen(uiRoot),
       menu: new MainMenu(uiRoot, {
         onContinue: () => void this.continueGame(),
         onNew: () => void this.newGame(),
+        onChapter: (id) => void this.startChapterFromMenu(id),
         onSettings: () => this.openSettings('menu'),
         hover,
       }),
@@ -132,7 +149,7 @@ export class Game {
     };
     this.ui.settings.onClose = () => this.closeSettings();
     this.ui.journal.onClose = () => this.closeJournal();
-    this.ui.settings.effectiveLabel = () => this.quality?.label ?? '';
+    this.ui.settings.effectiveLabel = () => (this.quality ? `${this.quality.label} · ${Math.round(this.renderer.effectiveScale * 100)}% resolution` : '');
     this.ui.hud.setVisible(false);
     this.touch = new TouchProvider(canvas, uiRoot);
     this.input.add(this.touch);
@@ -264,12 +281,15 @@ export class Game {
     E.on('collectible:found', (e) => {
       this.sfx.pickup();
       const c = collectible(e.id);
-      this.ui.hud.toast(c?.kind === 'relic' ? 'Relic found' : 'Journal page found', `${e.title} — ${this.touch.active ? 'tap ✎' : `press ${prettyCode(this.settings.value.bindings.journal[0])}`} to read`, 5);
+      this.ui.hud.toast(c ? `${KIND_LABEL[c.kind]} found` : 'Found', `${e.title} — ${this.touch.active ? 'tap ✎' : `press ${prettyCode(this.settings.value.bindings.journal[0])}`} to read`, 5);
     });
+    this.dialogue.voiceDuration = (l) => this.voice.duration(l);
     this.dialogue.onLine = (l) => {
       this.ui.hud.setLine(l);
       if (l?.radio) this.sfx.radio();
+      this.voice.play(l);
     };
+    E.on('chapter:loaded', (e) => this.voice.preload(e.id));
   }
 
   // =================================================================== settings / quality
@@ -278,8 +298,9 @@ export class Game {
     this.quality = resolveQuality(s.quality, this.perf?.level ?? 1);
     this.perf && (this.perf.enabled = s.quality === 'high');
     this.renderer.applyQuality(this.quality);
+    this.dynres.configure(this.quality.targetFrameMs, this.quality.dynamicResFloor);
     this.chapters?.current?.applyQuality(this.quality);
-    this.audio.setVolumes({ master: s.masterVolume, music: s.musicVolume, sfx: s.sfxVolume, ambience: s.ambienceVolume });
+    this.audio.setVolumes({ master: s.masterVolume, music: s.musicVolume, sfx: s.sfxVolume, ambience: s.ambienceVolume, voice: s.voiceVolume });
     this.input.sensitivity = s.mouseSensitivity;
     this.input.invertY = s.invertY;
     if (this.camera) {
@@ -314,20 +335,25 @@ export class Game {
     this.ui.end.close();
     const save = this.saves.latest();
     this.ui.menu.setSave(save ? save.label : null);
+    this.ui.menu.setChapters(
+      CHAPTERS.map((c) => ({ id: c.id, label: `${c.numberLabel} · ${c.title}` })),
+      this.unlockedChapters(),
+    );
     this.ui.menu.setVisible(true);
     this.clock.setPaused(false);
     this.audio.setPaused(false);
+    this.voice.stop();
     this.menuT = 0;
   }
 
-  private async newGame(): Promise<void> {
+  private async newGame(chapter = 1): Promise<void> {
     if (this.gameState !== 'menu') return;
     this.gameState = 'transition';
     this.audio.unlock();
     this.ui.menu.setVisible(false);
     await this.ui.hud.fade(true, 0.8);
     this.ui.hud.setVisible(true);
-    await this.chapters.ensureLoaded(1);
+    await this.chapters.ensureLoaded(chapter);
     this.chapters.startNew();
     this.enterPlaying();
     await this.ui.hud.fade(false, 1.2);
@@ -340,7 +366,7 @@ export class Game {
     this.audio.unlock();
     const entry = chapterEntry(save.chapter);
     if (!entry || entry.stub) {
-      this.showStubChapter(save.chapter);
+      this.showGameComplete();
       return;
     }
     this.gameState = 'transition';
@@ -353,29 +379,48 @@ export class Game {
     await this.ui.hud.fade(false, 1.0);
   }
 
-  /** STUB: chapters 2–5 are not playable yet; show an honest card instead of a broken level. */
-  private showStubChapter(id: number): void {
-    const e = chapterEntry(id)!;
+  /** The save is past the last chapter: offer a replay instead of a broken level. */
+  private showGameComplete(): void {
     this.ui.menu.setVisible(false);
     this.gameState = 'ended';
     this.endBackdrop = true;
     this.ui.end.open({
-      kicker: e.numberLabel,
-      title: e.title,
-      text: 'This chapter is in development. Its story is written; its levels are not built yet. Your progress is saved and will continue here once it is available.',
-      stats: 'Vertical slice · Chapter 1 complete',
+      kicker: 'THE FINAL EXPEDITION',
+      title: 'EXPEDITION COMPLETE',
+      text: CHAPTER_OUTROS[LAST_CHAPTER],
+      stats: `Collectibles ${this.state.progress.collectibles.size} · Choose any chapter from the main menu`,
       buttons: [
-        ['Replay Chapter 1', () => {
-          this.ui.end.close();
-          this.gameState = 'menu';
-          void this.newGame();
-        }],
         ['Main Menu', () => {
           this.ui.end.close();
           this.showMenu();
         }],
       ],
     });
+  }
+
+  /** Chapters the player has reached (any save / earlier play), plus all with ?chapters=all. */
+  private unlockedChapters(): number[] {
+    if (new URLSearchParams(location.search).get('chapters') === 'all' || this.debug) return CHAPTERS.map((c) => c.id);
+    let max = 1;
+    try {
+      max = Math.max(1, Number(localStorage.getItem('tfe.unlocked') ?? 1) || 1);
+    } catch {
+      /* storage blocked: only Chapter 1 */
+    }
+    return CHAPTERS.filter((c) => c.id <= max).map((c) => c.id);
+  }
+
+  private unlockChapter(id: number): void {
+    try {
+      const cur = Number(localStorage.getItem('tfe.unlocked') ?? 1) || 1;
+      if (id > cur) localStorage.setItem('tfe.unlocked', String(id));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private async startChapterFromMenu(id: number): Promise<void> {
+    await this.newGame(id);
   }
 
   private enterPlaying(): void {
@@ -388,23 +433,55 @@ export class Game {
 
   private onChapterComplete(id: number): void {
     const p = this.state.progress;
-    const found = [...p.collectibles].filter((c) => collectible(c)?.chapter === id).length;
+    const all = COLLECTIBLES.filter((c) => c.chapter === id);
+    const found = all.filter((c) => p.collectibles.has(c.id)).length;
     this.gameState = 'ended';
     this.endBackdrop = false;
     this.input.gameplayEnabled = false;
     this.exitLock();
+    const cur = chapterEntry(id)!;
     const next = chapterEntry(id + 1);
+    if (next) this.unlockChapter(next.id);
+    const last = !next;
     setTimeout(() => {
       this.ui.end.open({
-        kicker: 'CHAPTER ONE COMPLETE',
-        title: 'THE DISCOVERY',
-        text: 'The gate of the Watching Sun stands open. Below, in the mist, the Hollow Meridian waits — and someone has been keeping the path to it for sixty years.',
-        stats: `Collectibles ${found}/4 · Time ${Math.round(p.playtimeSec / 60)} min · Next: ${next ? `${next.numberLabel} — ${next.title} (in development)` : '—'}`,
-        buttons: [
-          ['Main Menu', () => void this.toMainMenu(false)],
-        ],
+        kicker: last ? 'THE FINAL EXPEDITION' : `${cur.numberLabel} COMPLETE`,
+        title: last ? 'THANK YOU FOR PLAYING' : cur.title,
+        text: last ? `${CHAPTER_OUTROS[id]}
+
+${CREDITS}` : CHAPTER_OUTROS[id] ?? '',
+        stats: `Collectibles ${found}/${all.length} · Time ${Math.round(p.playtimeSec / 60)} min${next ? ` · Next: ${next.numberLabel} — ${next.title}` : ''}`,
+        buttons: next
+          ? [
+              ['Continue', () => void this.continueToNext(next.id)],
+              ['Main Menu', () => void this.toMainMenu(false)],
+            ]
+          : [['Main Menu', () => void this.toMainMenu(false)]],
       });
     }, 1500);
+  }
+
+  /** Carry progress into the next chapter and start it. */
+  private async continueToNext(id: number): Promise<void> {
+    if (this.gameState !== 'ended') return;
+    const p = this.state.progress;
+    const carry = {
+      collectibles: [...p.collectibles],
+      storyFlags: { ...p.storyFlags },
+      completedPuzzles: [...p.completedPuzzles],
+      playtimeSec: p.playtimeSec,
+      dialogue: this.dialogue.playedIds,
+    };
+    this.gameState = 'transition';
+    this.ui.end.close();
+    await this.ui.hud.fade(true, 0.8);
+    this.cinematic.reset();
+    this.dialogue.clear();
+    this.ui.hud.setVisible(true);
+    await this.chapters.ensureLoaded(id);
+    this.chapters.startNew(carry);
+    this.enterPlaying();
+    await this.ui.hud.fade(false, 1.2);
   }
 
   pause(): void {
@@ -413,6 +490,7 @@ export class Game {
     this.lastPauseToggle = performance.now();
     this.clock.setPaused(true);
     this.audio.setPaused(true);
+    this.voice.pause();
     this.input.gameplayEnabled = false;
     this.exitLock();
     const ch = this.chapters.current;
@@ -430,6 +508,7 @@ export class Game {
     this.clock.setPaused(false);
     this.clock.resync();
     this.audio.setPaused(false);
+    this.voice.resume();
     this.requestLock();
     this.events.emit('game:paused', { paused: false });
   }
@@ -478,9 +557,15 @@ export class Game {
     this.ui.pause.setVisible(false);
     this.ui.end.close();
     await this.ui.hud.fade(true, 0.7);
-    this.cinematic.skip();
+    this.cinematic.reset();
     this.dialogue.clear();
     this.ui.hud.setVisible(false);
+    if (this.chapters.loadedId !== 1) {
+      this.ui.loading.setVisible(true);
+      await this.chapters.ensureLoaded(1);
+      this.chapters.current!.applyQuality(this.quality);
+      this.ui.loading.setVisible(false);
+    }
     this.resetBackdrop();
     this.showMenu();
     await this.ui.hud.fade(false, 0.9);
@@ -568,27 +653,38 @@ export class Game {
           cam.fov = 50;
           cam.updateProjectionMatrix();
         }
-        this.player.update(dt, this.camera.yaw);
-        ch.update(dt, realDt);
-        this.dialogue.update(dt);
+        this.substep(dt, realDt, (h, rh) => {
+          this.player.update(h, this.camera.yaw);
+          ch.update(h, rh);
+          this.dialogue.update(h);
+        });
       } else {
         const cineLock = this.cinematic.playing || (this.cinematic.active && this.cinematic.current?.lockDuringBlend !== false && this.cinematic.blendAmount > 0.35);
         this.input.gameplayEnabled = playing && !cineLock;
         this.input.lookEnabled = playing && !this.cinematic.playing;
-        if (dt > 0) {
-          this.state.progress.playtimeSec += dt;
-          this.cinematic.update(dt);
-          this.player.update(dt, this.camera.yaw);
+        this.substep(dt, realDt, (h, rh) => {
+          this.state.progress.playtimeSec += h;
+          this.cinematic.update(h);
+          this.player.update(h, this.camera.yaw);
           const canInteract = playing && !cineLock && this.player.mode.kind === 'ground' && this.player.grounded;
           this.interaction.update(this.player.position, this.player.facing, canInteract);
-          ch.update(dt, realDt);
-          this.dialogue.update(dt);
-        }
+          // Head look-at: glance at nearby points of interest (eased in/out by weight).
+          const layers = this.player.avatar.layers;
+          const look = canInteract ? this.interaction.lookCandidate(this.player.position, this.player.facing) : null;
+          if (look) layers.lookTarget = (layers.lookTarget ?? new THREE.Vector3()).copy(look);
+          layers.lookWeight = damp(layers.lookWeight, look ? 0.85 : 0, 4, h);
+          ch.update(h, rh);
+          this.dialogue.update(h);
+        });
         this.camera.update(dt, realDt, this.player, this.input.look());
         this.cinematic.apply(cam, this.camera.output);
+        this.player.avatar.setCameraOccluded(!this.cinematic.active && this.camera.armLength < AVATAR_HIDE_ARM);
         this.updateSkip(realDt);
         this.updatePrompt(cineLock);
-        if (playing) this.perf.update(realDt);
+        if (playing) {
+          this.perf.update(realDt);
+          this.dynres.update(realDt);
+        }
         this.ui.hud.setClickHint(playing && !cineLock && !document.pointerLockElement && this.hadLock && !this.touch.active);
         this.updateMinimap(realDt, playing && !this.cinematic.active);
       }
@@ -628,6 +724,21 @@ export class Game {
     const cine = this.cinematic.playing || (this.cinematic.active && this.cinematic.blendAmount > 0.35);
     this.touch.setMode(!!this.player && this.gameState === 'playing' && !this.ui.settings.isOpen, cine);
   };
+
+  /**
+   * Runs the simulation for this frame's delta in equal substeps of at most GameClock.STEP, so
+   * physics, timers and cinematics behave identically at 15, 60 or 144 FPS. Input edges
+   * (pressed/released) are delivered to the first substep only.
+   */
+  private substep(dt: number, realDt: number, step: (h: number, realH: number) => void): void {
+    if (dt <= 0) return;
+    const n = Math.min(GameClock.MAX_SUBSTEPS, Math.max(1, Math.ceil(dt / GameClock.STEP - 1e-6)));
+    const h = dt / n;
+    for (let i = 0; i < n; i++) {
+      step(h, realDt / n);
+      if (i === 0) this.input.consumeEdges();
+    }
+  }
 
   private minimapChapter: unknown = null;
   private updateMinimap(realDt: number, show: boolean): void {
@@ -687,7 +798,7 @@ export class Game {
     this.ui.hud.dev.textContent = [
       `${this.perf?.fps.toFixed(0)} fps · ${this.perf?.frameMs.toFixed(1)} ms`,
       `${info.render.calls} calls · ${(info.render.triangles / 1000).toFixed(0)}k tris`,
-      `${this.quality?.label} · ${this.probe?.renderer.slice(0, 48)}`,
+      `${this.quality?.label} · ${Math.round(this.renderer.effectiveScale * 100)}% res · ${this.probe?.renderer.slice(0, 40)}`,
       ps ? `${ps.mode} / ${ps.anim} · v ${ps.speed}` : '',
       ps ? `pos ${(ps.pos as number[]).join(', ')}` : '',
       `state ${this.gameState} · cp ${this.state.progress.checkpoint}`,

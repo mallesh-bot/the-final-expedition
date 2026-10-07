@@ -37,9 +37,22 @@ export class Renderer {
     window.visualViewport?.addEventListener('resize', () => this.resize());
   }
 
+  /** Dynamic-resolution multiplier on top of the preset's render scale (DynamicResolution owns it). */
+  private dynamicScale = 1;
+
+  setDynamicScale(s: number): void {
+    if (Math.abs(s - this.dynamicScale) < 1e-3) return;
+    this.dynamicScale = s;
+    this.resize();
+  }
+
+  get effectiveScale(): number {
+    return (this.quality?.renderScale ?? 1) * this.dynamicScale;
+  }
+
   applyQuality(q: QualitySettings): void {
     this.quality = q;
-    this.pixelBudget = q.preset === 'low' ? 1.3e6 : q.preset === 'medium' ? 2.3e6 : 3.8e6;
+    this.pixelBudget = q.preset === 'low' ? 1.0e6 : q.preset === 'medium' ? 2.1e6 : q.preset === 'high' ? 3.8e6 : 5.5e6;
     // Mobile GPUs are fill-rate bound: keep far fewer pixels than desktop at the same preset.
     if (isTouchPrimary) this.pixelBudget *= isPhone() ? 0.55 : 0.75;
     this.renderer.shadowMap.enabled = q.shadows;
@@ -51,10 +64,12 @@ export class Renderer {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const cap = this.quality?.pixelRatioCap ?? 1.5;
-    let pr = Math.min(window.devicePixelRatio || 1, cap) * (this.quality?.renderScale ?? 1);
-    // Keep total pixel count within the preset's budget (e.g. retina at 1440x900 on HIGH).
+    let pr = Math.min(window.devicePixelRatio || 1, cap);
+    // Keep total pixel count within the preset's budget (e.g. retina at 1440x900 on HIGH)...
     const px = w * h * pr * pr;
     if (px > this.pixelBudget) pr *= Math.sqrt(this.pixelBudget / px);
+    // ...then apply the preset render scale and the dynamic-resolution multiplier.
+    pr *= this.effectiveScale;
     this.renderer.setPixelRatio(pr);
     this.renderer.setSize(w, h, false);
     this.canvas.style.width = `${w}px`;

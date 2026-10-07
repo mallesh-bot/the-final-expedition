@@ -1,3 +1,4 @@
+import { gpuArgs } from './lib/browser.mjs';
 // Quick smoke probe: loads the game, waits for the menu, reports console errors + GPU + screenshot.
 import { chromium } from 'playwright';
 const url = process.argv[2] ?? 'http://localhost:5173/?debug';
@@ -5,7 +6,7 @@ const headless = !process.argv.includes('--headed');
 const browser = await chromium.launch({
   channel: 'chrome',
   headless,
-  args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu', '--autoplay-policy=no-user-gesture-required'],
+  args: [...gpuArgs(), '--enable-unsafe-webgpu', '--autoplay-policy=no-user-gesture-required'],
 });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 const errors = [];

@@ -8,7 +8,7 @@ import type { AnimState } from '../animation/AnimationDriver';
 import type { Persistable } from '../state/Persistable';
 import { HANG_DROP, HANG_OUT, TraversalSystem } from '../traversal/TraversalSystem';
 import type { ClimbSurface, Ledge, NarrowLedge } from '../traversal/TraversalTypes';
-import { angleDelta, clamp, dampAngle, smoothstep } from '../systems/noise';
+import { angleDelta, clamp, damp, dampAngle, smoothstep } from '../systems/noise';
 
 export type PlayerMode =
   | { kind: 'ground' }
@@ -82,9 +82,11 @@ export class Player implements Persistable<PlayerSave> {
   speedCap = Infinity;
   /** Context prompt the HUD can show (e.g. "Climb"). */
   prompt: string | null = null;
+  /** Below this height the player is lost (per level; deep gorges set it lower). */
+  killY = -30;
 
   constructor(
-    world: CollisionWorld,
+    private readonly world: CollisionWorld,
     private traversal: TraversalSystem,
     private input: InputManager,
     private events: EventBus,
@@ -190,14 +192,27 @@ export class Player implements Persistable<PlayerSave> {
     }
 
     // Kill plane
-    if (this.position.y < -30 && this.mode.kind !== 'dead') this.die('fell');
+    if (this.position.y < this.killY && this.mode.kind !== 'dead') this.die('fell');
 
     this.turnRate = angleDelta(prevYaw, this.yaw) / dt;
     this.syncAvatar();
     this.avatar.driver.update(dt, { speed: this.speed, rate });
     this.avatar.layers.update(dt, this.avatar.root, this.turnRate, this.speed, this.mode.kind === 'ground' || this.mode.kind === 'scripted');
+    // Feet adapt to the terrain only while standing/moving on the ground (not mid-air, climbing,
+    // hanging or vaulting, where the clip owns the legs). Fades so it never pops.
+    const ik = this.avatar.footIK;
+    const ikOn = (this.mode.kind === 'ground' || this.mode.kind === 'locked') && this.motor.grounded && !this.landing;
+    ik.weight = damp(ik.weight, ikOn ? 1 : 0, 10, dt);
+    ik.update(dt, this.avatar.root, this.groundSampler);
     this.footsteps();
   }
+
+  private groundSampler = (x: number, z: number, maxY: number, normalOut: THREE.Vector3): number => {
+    const g = this.world.groundAt(x, z, maxY);
+    if (g.box || !this.world.heightfield) normalOut.set(0, 1, 0);
+    else this.world.heightfield.normalAt(x, z, normalOut);
+    return g.y;
+  };
 
   private syncAvatar(): void {
     this.avatar.root.position.copy(this.motor.position);
@@ -212,6 +227,16 @@ export class Player implements Persistable<PlayerSave> {
       if (crossed) this.events.emit('player:footstep', { surface: this.motor.groundSurface, intensity: clamp(this.speed / SPEED.sprint, 0.25, 1) });
     }
     this.lastPhase = ph;
+  }
+
+  /** Hazard death (collapse, drowning, rockfall): same respawn flow as a lethal fall. */
+  kill(reason: string): void {
+    if (this.mode.kind === 'dead') return;
+    this.die(reason);
+  }
+
+  get isDead(): boolean {
+    return this.mode.kind === 'dead';
   }
 
   private die(reason: string): void {
@@ -584,10 +609,8 @@ export class Player implements Persistable<PlayerSave> {
     const len = nl.a.distanceTo(nl.b);
     const dir = this.tmp2.subVectors(nl.b, nl.a).normalize();
     const mv = this.input.move();
-    const fwd = this.tmp.set(Math.sin(camYaw), 0, Math.cos(camYaw));
-    const right = new THREE.Vector3(-Math.cos(camYaw), 0, Math.sin(camYaw));
-    const want = fwd.multiplyScalar(mv.y).addScaledVector(right, mv.x);
-    const along = want.dot(dir);
+    // Camera-relative input projected onto the ledge direction.
+    const along = (Math.sin(camYaw) * mv.y - Math.cos(camYaw) * mv.x) * dir.x + (Math.cos(camYaw) * mv.y + Math.sin(camYaw) * mv.x) * dir.z;
     const v = Math.abs(along) > 0.2 ? Math.sign(along) * NARROW_SPEED * Math.min(1, Math.abs(along) * 1.3) : 0;
     n.t += v * dt;
     this.speed = 0;
@@ -604,7 +627,7 @@ export class Player implements Persistable<PlayerSave> {
     this.traversal.narrowPoint(nl, n.t, this.position);
     // Face the wall (wall is opposite the normal).
     this.yaw = dampAngle(this.yaw, Math.atan2(-nl.normal.x, -nl.normal.z), 10, dt);
-    const playerRight = new THREE.Vector3(nl.normal.z, 0, -nl.normal.x);
+    const playerRight = this.tmp.set(nl.normal.z, 0, -nl.normal.x);
     if (Math.abs(v) > 0.01) {
       this.climbDist += Math.abs(v) * dt;
       if (this.climbDist > 0.5) {

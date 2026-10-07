@@ -1,0 +1,113 @@
+{
+  "clips": {
+    "idle": {
+      "source": "ual1:Idle_Loop",
+      "frames": 76,
+      "bones": 65
+    },
+    "walk": {
+      "source": "ual1:Walk_Loop",
+      "frames": 41,
+      "bones": 65
+    },
+    "run": {
+      "source": "ual1:Jog_Fwd_Loop",
+      "frames": 29,
+      "bones": 65
+    },
+    "sprint": {
+      "source": "ual1:Sprint_Loop",
+      "frames": 21,
+      "bones": 65
+    },
+    "jump": {
+      "source": "ual1:Jump_Start",
+      "frames": 41,
+      "bones": 65
+    },
+    "fall": {
+      "source": "ual1:Jump_Loop",
+      "frames": 76,
+      "bones": 65
+    },
+    "land": {
+      "source": "ual1:Jump_Land",
+      "frames": 39,
+      "bones": 65
+    },
+    "interact": {
+      "source": "ual1:Interact",
+      "frames": 61,
+      "bones": 65
+    },
+    "push": {
+      "source": "ual1:Push_Loop",
+      "frames": 81,
+      "bones": 65
+    },
+    "sit": {
+      "source": "ual1:Sitting_Idle_Loop",
+      "frames": 51,
+      "bones": 65
+    },
+    "talk": {
+      "source": "ual1:Idle_Talking_Loop",
+      "frames": 89,
+      "bones": 65
+    },
+    "look_around": {
+      "source": "ual1:Idle_Loop",
+      "frames": 76,
+      "bones": 65
+    },
+    "climb_up": {
+      "source": "legacy:climb_up",
+      "frames": 35,
+      "bones": 17
+    },
+    "climb": {
+      "source": "legacy:climb",
+      "frames": 40,
+      "bones": 17
+    },
+    "hang": {
+      "source": "legacy:hang",
+      "frames": 73,
+      "bones": 17
+    },
+    "shimmy": {
+      "source": "legacy:shimmy",
+      "frames": 28,
+      "bones": 17
+    },
+    "ledge_step": {
+      "source": "legacy:ledge_step",
+      "frames": 34,
+      "bones": 17
+    },
+    "ledge_idle": {
+      "source": "legacy:ledge_idle",
+      "frames": 76,
+      "bones": 17
+    },
+    "vault": {
+      "source": "legacy:vault",
+      "frames": 20,
+      "bones": 17
+    }
+  },
+  "strides": {
+    "walk": {
+      "metres": 1.321,
+      "seconds": 1.333
+    },
+    "run": {
+      "metres": 5.082,
+      "seconds": 0.933
+    },
+    "sprint": {
+      "metres": 5.591,
+      "seconds": 0.667
+    }
+  }
+}

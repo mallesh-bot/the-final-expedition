@@ -17,7 +17,7 @@ import type { Sfx } from '../audio/Sfx';
 import type { Ambience } from '../audio/Ambience';
 import type { AdaptiveMusic } from '../audio/AdaptiveMusic';
 import type { InputManager } from '../input/InputManager';
-import type { CharacterAvatar } from '../animation/CharacterAvatar';
+import type { CharacterAvatar, CharacterId } from '../animation/CharacterAvatar';
 
 export interface CheckpointDef {
   pos: THREE.Vector3;
@@ -43,7 +43,7 @@ export interface ChapterContext {
   input: InputManager;
   audio: { engine: AudioEngine; sfx: Sfx; ambience: Ambience; music: AdaptiveMusic };
   quality: () => QualitySettings;
-  createAvatar: (id: 'ines' | 'toby') => CharacterAvatar;
+  createAvatar: (id: CharacterId) => CharacterAvatar;
   reachCheckpoint: (id: string) => void;
   completeChapter: () => void;
   /** Open the journal on a collectible. */

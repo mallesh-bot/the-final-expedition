@@ -1,5 +1,6 @@
 import { el, show } from './dom';
-import { COLLECTIBLES } from '../story/Collectibles';
+import { COLLECTIBLES, KIND_LABEL } from '../story/Collectibles';
+import { CHAPTERS } from '../chapters/ChapterRegistry';
 
 export class JournalView {
   readonly root: HTMLElement;
@@ -38,18 +39,23 @@ export class JournalView {
 
   private render(): void {
     this.list.innerHTML = '';
-    for (const c of COLLECTIBLES.filter((x) => x.chapter === 1)) {
-      const has = this.found.has(c.id);
-      const li = el('li', { class: `${has ? '' : 'locked'} ${c.id === this.selected ? 'on' : ''}` }, [
-        el('small', {}, [c.kind === 'journal' ? 'Journal' : 'Relic']),
-        has ? c.title : '— undiscovered —',
-      ]);
-      if (has)
-        li.onclick = () => {
-          this.selected = c.id;
-          this.render();
-        };
-      this.list.append(li);
+    // Chapters with something found (always at least Chapter 1), newest last.
+    const chapters = CHAPTERS.filter((ch) => ch.id === 1 || COLLECTIBLES.some((c) => c.chapter === ch.id && this.found.has(c.id)));
+    for (const ch of chapters) {
+      this.list.append(el('li', { class: 'chapter-head' }, [ch.title]));
+      for (const c of COLLECTIBLES.filter((x) => x.chapter === ch.id)) {
+        const has = this.found.has(c.id);
+        const li = el('li', { class: `${has ? '' : 'locked'} ${c.id === this.selected ? 'on' : ''}`, 'data-id': c.id }, [
+          el('small', {}, [KIND_LABEL[c.kind]]),
+          has ? c.title : '— undiscovered —',
+        ]);
+        if (has)
+          li.onclick = () => {
+            this.selected = c.id;
+            this.render();
+          };
+        this.list.append(li);
+      }
     }
     this.page.innerHTML = '';
     const c = COLLECTIBLES.find((x) => x.id === this.selected && this.found.has(x.id));
@@ -58,6 +64,6 @@ export class JournalView {
       return;
     }
     this.page.append(el('h3', {}, [c.title]), el('p', {}, [c.text]));
-    if (c.image) this.page.append(el('img', { src: c.image(), alt: 'Sketch' }));
+    if (c.image) this.page.append(el('img', { src: c.image(), alt: c.kind === 'photo' ? 'Photograph' : 'Sketch', class: c.kind }));
   }
 }

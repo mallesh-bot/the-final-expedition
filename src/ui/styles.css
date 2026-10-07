@@ -37,6 +37,8 @@ body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: anti
 .menu .title small { display: block; font-size: 0.32em; letter-spacing: 0.62em; color: var(--gold); margin-bottom: 0.9em; font-family: var(--sans); }
 .menu .rule { width: 90px; height: 1px; background: var(--gold-dim); margin: 34px 0 30px; }
 .menu nav { display: flex; flex-direction: column; gap: 6px; }
+.menu nav.chapters button { font-size: 13px; letter-spacing: 0.22em; }
+.menu nav.chapters button.back { margin-top: 14px; color: var(--gold); }
 .menu button, .panel button.item {
   pointer-events: auto; background: none; border: 0; color: var(--ink-dim); font-family: var(--sans); font-size: 15px; letter-spacing: 0.34em;
   text-align: left; padding: 10px 0; cursor: pointer; transition: color 0.2s, letter-spacing 0.3s, padding 0.3s; text-transform: uppercase; position: relative;
@@ -86,6 +88,11 @@ input[type='range'] { pointer-events: auto; width: 100%; accent-color: var(--gol
 .subs.show { opacity: 1; }
 .subs b { font-weight: 600; letter-spacing: 0.16em; font-size: 0.72em; margin-right: 10px; color: var(--gold); }
 .subs b.TOBY { color: #9fc3c0; }
+.subs b.MARTA { color: #d9b48a; }
+.subs b.CORWIN { color: #a9b4c8; }
+.subs b.DACE { color: #b8a27c; }
+.subs b.AYME { color: #d39a83; }
+.subs b.NARRATION { display: none; }
 .subs .radio::after { content: ' ◦ radio'; font-size: 0.6em; letter-spacing: 0.2em; color: var(--ink-dim); font-weight: 400; }
 .toasts { position: absolute; left: 4vw; bottom: 8vh; display: flex; flex-direction: column; gap: 10px; }
 .toast { display: flex; align-items: center; gap: 14px; opacity: 0; transform: translateX(-12px); transition: opacity 0.5s, transform 0.5s; font-size: 11px; letter-spacing: 0.26em; text-transform: uppercase; text-shadow: 0 1px 6px rgba(0,0,0,0.9); }
@@ -102,7 +109,8 @@ input[type='range'] { pointer-events: auto; width: 100%; accent-color: var(--gol
 .skip.show { opacity: 1; }
 .skip svg { width: 26px; height: 26px; transform: rotate(-90deg); }
 .skip circle.fg { stroke: var(--gold); stroke-dasharray: 69.1; stroke-dashoffset: 69.1; }
-.fade { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 0.8s ease; }
+.fade { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 0.8s ease; z-index: 2; }
+.hud .subs, .hud .card { z-index: 3; }
 .fade.show { opacity: 1; }
 .minimap { position: absolute; top: 3.2vh; right: 2.6vw; border-radius: 50%; opacity: 0; transition: opacity 0.5s; filter: drop-shadow(0 2px 10px rgba(0,0,0,0.55)); }
 .minimap.show { opacity: 1; }
@@ -117,6 +125,8 @@ input[type='range'] { pointer-events: auto; width: 100%; accent-color: var(--gol
 .journal li { padding: 12px 24px; font-size: 12px; letter-spacing: 0.1em; color: var(--ink-dim); cursor: pointer; }
 .journal li.on { color: var(--ink); background: rgba(201,163,91,0.08); box-shadow: inset 2px 0 0 var(--gold); }
 .journal li.locked { opacity: 0.3; cursor: default; }
+.journal li.chapter-head { cursor: default; padding: 18px 24px 6px; font-size: 10px; letter-spacing: 0.32em; color: var(--gold); }
+.journal .page img.photo { mix-blend-mode: normal; box-shadow: 0 6px 18px rgba(40,24,10,0.35); transform: rotate(-1.2deg); }
 .journal li small { display: block; font-size: 10px; letter-spacing: 0.24em; color: var(--gold-dim); margin-bottom: 4px; text-transform: uppercase; }
 .journal .page { padding: 40px 48px; overflow: auto; background: linear-gradient(180deg, rgba(232,220,190,0.95), rgba(214,198,160,0.95)); color: #2b2217; }
 .journal .page h3 { margin: 0 0 22px; font-family: var(--serif); font-weight: 400; font-size: 24px; letter-spacing: 0.05em; }
@@ -126,7 +136,7 @@ input[type='range'] { pointer-events: auto; width: 100%; accent-color: var(--gol
 
 .end-card { display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.82); text-align: center; }
 .end-card h1 { font-family: var(--serif); font-weight: 400; letter-spacing: 0.3em; font-size: clamp(26px, 3vw, 46px); margin: 18px 0 8px; }
-.end-card p { font-family: var(--serif); font-style: italic; color: var(--ink-dim); max-width: 620px; line-height: 1.7; font-size: 17px; }
+.end-card p { white-space: pre-line; font-family: var(--serif); font-style: italic; color: var(--ink-dim); max-width: 620px; line-height: 1.7; font-size: 17px; }
 .end-card .stats { margin-top: 18px; font-size: 11px; letter-spacing: 0.24em; color: var(--ink-dim); text-transform: uppercase; }
 .end-card nav { margin-top: 38px; display: flex; gap: 20px; }
 .end-card button { pointer-events: auto; background: none; border: 1px solid rgba(201,163,91,0.4); color: var(--ink); padding: 12px 26px; letter-spacing: 0.3em; font-size: 11px; cursor: pointer; text-transform: uppercase; }

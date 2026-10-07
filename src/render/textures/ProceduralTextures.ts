@@ -888,3 +888,146 @@ export function journalSketchDataURL(): string {
   ctx.globalAlpha = 1;
   return c.toDataURL();
 }
+
+/**
+ * Carved relief on masonry: `draw` paints the carving (white = cut) into a mask; the result is
+ * stone albedo darkened in the cuts, a normal map from the cut depth, and the mask itself (use it
+ * as an emissive map so only the grooves glow).
+ */
+export function carvedTextures(seed: number, w: number, hgt: number, draw: (m: CanvasRenderingContext2D, w: number, h: number) => void, tint: RGB = [140, 128, 104]): PBRSet & { mask: THREE.Texture } {
+  const [c, ctx] = makeCanvas(w, hgt);
+  const stone = stoneTextures(seed, 512, tint, 'masonry');
+  const src = (stone.map as THREE.DataTexture).image.data as Uint8Array;
+  const img = ctx.createImageData(w, hgt);
+  for (let y = 0; y < hgt; y++)
+    for (let x = 0; x < w; x++) {
+      const si = ((y % 512) * 512 + (x % 512)) * 4;
+      const di = (y * w + x) * 4;
+      img.data[di] = src[si];
+      img.data[di + 1] = src[si + 1];
+      img.data[di + 2] = src[si + 2];
+      img.data[di + 3] = 255;
+    }
+  ctx.putImageData(img, 0, 0);
+  stone.map.dispose();
+  stone.normalMap.dispose();
+  stone.roughnessMap?.dispose();
+  const [mc, m] = makeCanvas(w, hgt);
+  m.fillStyle = '#000';
+  m.fillRect(0, 0, w, hgt);
+  m.strokeStyle = '#fff';
+  m.fillStyle = '#fff';
+  m.filter = 'blur(1.5px)';
+  draw(m, w, hgt);
+  m.filter = 'none';
+  const mask = m.getImageData(0, 0, w, hgt).data;
+  const out = ctx.getImageData(0, 0, w, hgt);
+  const h = new Float32Array(w * hgt);
+  for (let i = 0; i < w * hgt; i++) {
+    const mm = mask[i * 4] / 255;
+    h[i] = -mm;
+    out.data[i * 4] *= 1 - mm * 0.55;
+    out.data[i * 4 + 1] *= 1 - mm * 0.55;
+    out.data[i * 4 + 2] *= 1 - mm * 0.5;
+  }
+  ctx.putImageData(out, 0, 0);
+  const nrm = new Uint8Array(w * hgt * 4);
+  for (let y = 0; y < hgt; y++)
+    for (let x = 0; x < w; x++) {
+      const hx = (xx: number, yy: number) => h[clamp(yy, 0, hgt - 1) * w + clamp(xx, 0, w - 1)];
+      const dx = (hx(x + 1, y) - hx(x - 1, y)) * 4;
+      const dy = (hx(x, y + 1) - hx(x, y - 1)) * 4;
+      const l = Math.hypot(dx, dy, 1);
+      const i = (y * w + x) * 4;
+      nrm[i] = (-dx / l * 0.5 + 0.5) * 255;
+      nrm[i + 1] = (dy / l * 0.5 + 0.5) * 255;
+      nrm[i + 2] = (1 / l * 0.5 + 0.5) * 255;
+      nrm[i + 3] = 255;
+    }
+  const nt = new THREE.DataTexture(nrm, w, hgt, THREE.RGBAFormat);
+  nt.needsUpdate = true;
+  nt.generateMipmaps = true;
+  nt.minFilter = THREE.LinearMipmapLinearFilter;
+  return { map: canvasTex(c, true, false), normalMap: nt, mask: canvasTex(mc, false, false) };
+}
+
+/** The inner wall (Ch3): the sun walking through three houses, the eye carried down to the water, script registers. */
+export function innerWallTextures(seed = 303): PBRSet & { mask: THREE.Texture } {
+  return carvedTextures(seed, 1024, 736, (m, w, h) => {
+    const rnd = mulberry32(seed);
+    m.lineWidth = 7;
+    m.strokeRect(14, 14, w - 28, h - 28);
+    m.lineWidth = 3;
+    m.strokeRect(30, 30, w - 60, h - 60);
+    // Top register: the Watcher's arc through Rising (right), Open Eye (top), Setting (left).
+    m.lineWidth = 5;
+    m.setLineDash([3, 16]);
+    m.beginPath();
+    m.arc(w / 2, 330, 330, Math.PI * 1.08, Math.PI * 1.92);
+    m.stroke();
+    m.setLineDash([]);
+    drawGlyph(m, 'rising', w * 0.82, 230, 110);
+    drawGlyph(m, 'eye', w * 0.5, 100, 120);
+    drawGlyph(m, 'setting', w * 0.18, 230, 110);
+    // Middle register: figures carrying a disc down a stair toward wavy water (right to left).
+    const ground = 470;
+    m.lineWidth = 4;
+    m.beginPath();
+    for (let i = 0; i < 9; i++) {
+      const x = w - 90 - i * 95;
+      const y = ground - 70 + i * 9;
+      m.moveTo(x, y);
+      m.lineTo(x - 95, y);
+      m.lineTo(x - 95, y + 9);
+    }
+    m.stroke();
+    for (let i = 0; i < 5; i++) {
+      const x = w - 170 - i * 150;
+      const y = ground - 70 + i * 14;
+      m.lineWidth = 5;
+      m.beginPath();
+      m.arc(x, y - 78, 11, 0, Math.PI * 2);
+      m.moveTo(x, y - 66);
+      m.lineTo(x, y - 30);
+      m.lineTo(x - 13, y);
+      m.moveTo(x, y - 30);
+      m.lineTo(x + 13, y);
+      m.moveTo(x, y - 56);
+      m.lineTo(x - 22, y - 74);
+      m.stroke();
+      if (i === 2) {
+        m.beginPath();
+        m.arc(x - 26, y - 92, 22, 0, Math.PI * 2);
+        m.stroke();
+        drawGlyph(m, 'eye', x - 26, y - 92, 26);
+      }
+    }
+    // Water at the bottom-left, held behind a sluice (the lock).
+    m.lineWidth = 4;
+    for (let k = 0; k < 3; k++) {
+      m.beginPath();
+      for (let x = 60; x < 380; x += 6) {
+        const y = ground + 30 + k * 16 + Math.sin(x * 0.07 + k) * 5;
+        if (x === 60) m.moveTo(x, y);
+        else m.lineTo(x, y);
+      }
+      m.stroke();
+    }
+    m.strokeRect(380, ground + 10, 26, 70);
+    // Bottom register: script, right to left, varied glyph sizes.
+    const glyphs: GlyphId[] = ['rising', 'eye', 'setting', 'serpent'];
+    for (let row = 0; row < 2; row++) {
+      let x = w - 70;
+      while (x > 70) {
+        const s = 30 + rnd() * 18;
+        drawGlyph(m, glyphs[Math.floor(rnd() * 4)], x, 600 + row * 62, s);
+        x -= s + 14 + rnd() * 10;
+      }
+    }
+    m.lineWidth = 3;
+    m.beginPath();
+    m.moveTo(40, 560);
+    m.lineTo(w - 40, 560);
+    m.stroke();
+  });
+}

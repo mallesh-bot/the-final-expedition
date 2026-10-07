@@ -154,9 +154,8 @@ export class TraversalSystem {
       const approach = Math.abs(lz) - v.half.z;
       if (approach < 0 || approach > 0.95) continue;
       const side = Math.sign(lz);
-      // local -z*side is the crossing direction
-      const crossW = new THREE.Vector3(c * 0 + s * (-side), 0, -s * 0 + c * (-side));
-      if (moveDir.dot(crossW) < 0.6) continue;
+      // local -z*side is the crossing direction (world: (-s*side, 0, -c*side))
+      if (moveDir.x * (-s * side) + moveDir.z * (-c * side) < 0.6) continue;
       const topY = v.center.y + v.half.y;
       const toL = -side * (v.half.z + 0.55);
       const to = new THREE.Vector3(v.center.x + (c * lx + s * toL), 0, v.center.z + (-s * lx + c * toL));

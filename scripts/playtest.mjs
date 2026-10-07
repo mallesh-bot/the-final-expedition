@@ -1,14 +1,15 @@
 // End-to-end playtest of the Chapter 1 vertical slice, driven through real keyboard input.
 //   npm run dev  (in another terminal)   then   npm run playtest
 // Fails (exit 1) on any console error / page error or failed check. Screenshots in playtest-output/.
-import { chromium } from 'playwright';
+// Waits are in *simulation* time (waitSim/holdSim), so results don't depend on GPU speed.
 import { mkdirSync } from 'node:fs';
+import { BASE_URL as URL, launch, simHelpers } from './lib/browser.mjs';
 
-const URL = process.env.TFE_URL ?? 'http://localhost:5173/?debug';
 mkdirSync('playtest-output', { recursive: true });
-const browser = await chromium.launch({ channel: 'chrome', headless: !process.argv.includes('--headed'), args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
+const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
 const page = await context.newPage();
+const { waitSim, holdSim, until } = simHelpers(page);
 const errors = [];
 page.on('console', (m) => {
   if (m.type() === 'error') errors.push(m.text().slice(0, 800));
@@ -69,8 +70,9 @@ await wait(3000);
 await shot('02-intro');
 s = await S();
 check('player input locked during cinematic', s.player.mode === 'scripted');
-await hold(['Space'], 1100); // hold-to-skip
-await wait(2500);
+await hold(['Space'], 1100); // hold-to-skip (real time: the skip meter uses real time)
+await until(() => { const x = window.__TFE.state(); return x.cinematic === null && x.player.mode === 'ground'; }, null, 20000).catch(() => {});
+await waitSim(0.5);
 s = await S();
 check('intro skippable (hold SPACE)', s.cinematic === null && s.player.mode === 'ground', `cin=${s.cinematic} mode=${s.player.mode}`);
 check('intro flag set', s.flags.ch1_intro_seen === true);
@@ -78,23 +80,24 @@ check('intro flag set', s.flags.ch1_intro_seen === true);
 // ------------------------------------------------------------------ locomotion
 await camYaw(0.05);
 const p0 = (await S()).player.pos;
-await hold(['KeyW'], 1600);
+await holdSim(['KeyW'], 1.6);
 s = await S();
 check('walk/run forward (W)', s.player.pos[2] - p0[2] > 3, `dz=${(s.player.pos[2] - p0[2]).toFixed(2)}`);
 await page.keyboard.down('KeyW');
 await page.keyboard.down('ShiftLeft');
-await wait(1200);
+await waitSim(1.2);
 s = await S();
 check('sprint (SHIFT)', s.player.sprinting && s.player.speed > 5.8, `speed=${s.player.speed}`);
 await page.keyboard.up('ShiftLeft');
 await page.keyboard.up('KeyW');
-await wait(700);
+await waitSim(0.7);
 const y0 = (await S()).player.pos[1];
-await tap('Space');
-await wait(280);
+await page.keyboard.down('Space');
+await waitSim(0.25);
+await page.keyboard.up('Space');
 s = await S();
 check('jump (SPACE)', s.player.pos[1] - y0 > 0.4, `dy=${(s.player.pos[1] - y0).toFixed(2)}`);
-await wait(900);
+await waitSim(0.9);
 s = await S();
 check('land after jump', s.player.grounded && s.player.mode === 'ground');
 check('minimap visible in gameplay', await page.isVisible('canvas.minimap.show'));
@@ -118,9 +121,9 @@ check('RESUME continues exact state', s.gameState === 'playing' && s.simTime > t
 // ------------------------------------------------------------------ collectible
 await T(0.6, 0.1, -12.2, 0);
 await camYaw(0);
-await wait(500);
+await waitSim(0.4);
 await tap('KeyE');
-await wait(1600);
+await waitSim(1.6);
 s = await S();
 check('pick up journal page (E)', s.collectibles.includes('ch1_journal_1'), s.collectibles.join(','));
 check('camp checkpoint reached', s.checkpoint === 'ch1_camp', s.checkpoint);
@@ -135,12 +138,13 @@ await wait(500);
 // Theodolite sighting (short cinematic) + the remaining camp collectibles
 await T(2.8, 0.1, -3.2, 0);
 await camYaw(0);
-await wait(400);
+await waitSim(0.4);
 await tap('KeyE');
-await wait(600);
+await waitSim(0.5);
 s = await S();
 check('theodolite sighting cinematic', s.cinematic === 'ch1_theodolite', `cin=${s.cinematic}`);
-await wait(8000);
+await waitSim(6.5);
+await until(() => { const x = window.__TFE.state(); return x.cinematic === null && x.player.mode === 'ground'; }, null, 20000).catch(() => {});
 s = await S();
 check('control returns after sighting', s.cinematic === null && s.player.mode === 'ground', s.player.mode);
 for (const [x, z, yaw, id] of [
@@ -150,15 +154,15 @@ for (const [x, z, yaw, id] of [
 ]) {
   await T(x, 0.1, z, yaw);
   await camYaw(yaw);
-  await wait(400);
+  await waitSim(0.4);
   await tap('KeyE');
-  await wait(1500);
+  await waitSim(1.5);
   s = await S();
   check(`collect ${id}`, s.collectibles.includes(id), s.collectibles.join(','));
 }
 await tap('KeyJ');
 await wait(400);
-await page.click('.journal li:nth-child(2)');
+await page.click('.journal li[data-id="ch1_journal_2"]');
 await wait(300);
 check('journal page 2 shows Marta\'s sketch', await page.isVisible('.journal .page img'));
 await shot('04b-journal-sketch');
@@ -189,13 +193,13 @@ await shot('06-stairs');
 // Assisted gap jump
 await T(22.3, 6.12, 23.3, Math.PI / 2);
 await camYaw(Math.PI / 2);
-await wait(400);
+await waitSim(0.4);
 await page.keyboard.down('KeyW');
-await wait(150);
+await waitSim(0.15);
 await tap('Space');
-await wait(1200);
+await waitSim(1.2);
 await page.keyboard.up('KeyW');
-await wait(500);
+await waitSim(0.5);
 s = await S();
 check('assisted gap jump across broken stair', s.player.pos[0] > 24.9 && s.player.pos[1] > 6.3, `pos=${s.player.pos}`);
 s = await holdUntil(['KeyW'], (x) => x.player.pos[0] > 28.3 && x.player.pos[1] > 8.3, 6000);
@@ -233,7 +237,7 @@ await shot('07-ridge');
   await wait(400);
   const seen5 = new Set();
   s = await holdUntil(['KeyW', 'ShiftLeft'], (x) => x.player.mode === 'vault', 3000, seen5);
-  await wait(900);
+  await waitSim(0.9);
   s = await S();
   const along = (s.player.pos[0] - 21.2) * ax + (s.player.pos[2] - 31.2) * az;
   check('contextual vault over fallen column', seen5.has('vault') && along > 0.4, `along=${along.toFixed(2)} seen=${[...seen5]}`);
@@ -242,9 +246,11 @@ await shot('07-ridge');
 // ------------------------------------------------------------------ fall + respawn
 await T(14, 12.1, 25.4, Math.PI);
 await camYaw(Math.PI);
-await wait(300);
-await hold(['KeyW'], 1200);
-await wait(3500);
+await waitSim(0.3);
+await holdSim(['KeyW'], 1.2);
+// Death → fade (real-time UI) → respawn at the ridge checkpoint.
+await until(() => { const x = window.__TFE.state(); return x.player.mode === 'ground' && Math.abs(x.player.pos[1] - 12) < 0.6; }, null, 20000).catch(() => {});
+await waitSim(0.3);
 s = await S();
 check('lethal fall respawns at checkpoint', Math.abs(s.player.pos[1] - 12) < 0.6 && s.player.mode === 'ground', `pos=${s.player.pos}`);
 
@@ -252,10 +258,10 @@ check('lethal fall respawns at checkpoint', Math.abs(s.player.pos[1] - 12) < 0.6
 const drum = async (x, presses) => {
   await T(x, 12, 45.25, 0);
   await camYaw(0);
-  await wait(300);
+  await waitSim(0.3);
   for (let i = 0; i < presses; i++) {
     await tap('KeyE');
-    await wait(1700);
+    await waitSim(1.7);
   }
 };
 await drum(5.9, 1);
@@ -266,7 +272,7 @@ await shot('08-drums');
 await drum(5.9, 1);
 await drum(4.0, 2);
 await drum(2.1, 2);
-await wait(600);
+await until(() => window.__TFE.state().cinematic === 'ch1_gate_open', null, 15000).catch(() => {});
 s = await S();
 check('puzzle solved → gate cinematic', s.puzzles.includes('ch1_sun_gate') && (s.cinematic === 'ch1_gate_open' || s.cinematicActive), `cin=${s.cinematic}`);
 await wait(5000);
@@ -347,11 +353,17 @@ s = await holdUntil(['KeyW'], (x) => x.cinematic === 'ch1_city_reveal', 5000);
 check('city reveal cinematic on terrace', s.cinematic === 'ch1_city_reveal');
 await wait(6000);
 await shot('12-city-reveal');
-await page.waitForFunction(() => window.__TFE.state().gameState === 'ended', null, { timeout: 20000 }).catch(() => {});
+await page.waitForFunction(() => window.__TFE.state().gameState === 'ended', null, { timeout: 45000 }).catch(() => {});
 await wait(2000);
 s = await S();
 check('chapter complete → end card', s.gameState === 'ended' && s.chapter === 2, `state=${s.gameState} ch=${s.chapter}`);
 await shot('13-end-card');
+
+// ------------------------------------------------------------------ collision integrity
+{
+  const sweep = await page.evaluate(() => window.__TFE.collisionSweep(1500, 11));
+  check('collision sweep: capsule never embedded > 2 cm', sweep.worst <= 0.02, JSON.stringify(sweep).slice(0, 300));
+}
 
 // ------------------------------------------------------------------ report
 check('no console errors', errors.length === 0, errors.slice(0, 5).join(' | '));

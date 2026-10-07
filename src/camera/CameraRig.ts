@@ -25,6 +25,14 @@ interface Framing {
   fovAdd: number;
 }
 
+const UP = new THREE.Vector3(0, 1, 0);
+/** Shortest spring arm (m). */
+const MIN_ARM = 0.15;
+/** Below this arm length the camera is effectively inside the character: hide the avatar. */
+export const AVATAR_HIDE_ARM = 0.45;
+/** [right, up] offsets of the spring-arm probe rays (approximate a ~0.28 m sphere cast). */
+const PROBE_OFFSETS: readonly [number, number][] = [[0, 0], [0.28, 0], [-0.28, 0], [0, 0.24], [0, -0.2]];
+
 const FRAMES: Record<string, Framing> = {
   explore: { distance: 3.7, shoulder: 0.45, height: 1.55, fovAdd: 0 },
   climb: { distance: 4.5, shoulder: 0.25, height: 1.3, fovAdd: 4 },
@@ -46,6 +54,8 @@ export class CameraRig {
   shakeScale = 1;
   hints: CameraHint[] = [];
   readonly pivot = new THREE.Vector3();
+  /** Where the spring arm starts this frame (pivot + collision-limited shoulder offset). */
+  readonly armOrigin = new THREE.Vector3();
   private dist = 3.7;
   private arm = 3.7;
   private shoulder = 0.45;
@@ -58,6 +68,11 @@ export class CameraRig {
   private dir = new THREE.Vector3();
   private right = new THREE.Vector3();
   private tmp = new THREE.Vector3();
+  private side = new THREE.Vector3();
+  private back = new THREE.Vector3();
+  private probe = new THREE.Vector3();
+  private shakeEuler = new THREE.Euler();
+  private shakeQuat = new THREE.Quaternion();
   private initialized = false;
   readonly output = { position: new THREE.Vector3(), quaternion: new THREE.Quaternion(), fov: 60 };
   private lookMat = new THREE.Matrix4();
@@ -154,18 +169,29 @@ export class CameraRig {
     const cp = Math.cos(pitch);
     this.dir.set(Math.sin(this.yaw) * cp, -Math.sin(pitch), Math.cos(this.yaw) * cp);
     this.right.set(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
-    const origin = this.tmp.copy(this.pivot).addScaledVector(this.right, this.shoulder);
+    // Shoulder probe: the over-the-shoulder pivot must stay outside walls, otherwise the arm rays
+    // start inside a collider (which ray tests ignore) and the camera ends up behind the wall.
+    let shoulder = this.shoulder;
+    if (Math.abs(shoulder) > 1e-3) {
+      const sgn = Math.sign(shoulder);
+      this.side.copy(this.right).multiplyScalar(sgn);
+      const hit = this.world.raycast(this.pivot, this.side, Math.abs(shoulder) + 0.3, true, false);
+      if (hit !== null) shoulder = sgn * Math.max(0, hit - 0.3);
+    }
+    const origin = this.tmp.copy(this.pivot).addScaledVector(this.right, shoulder);
     // Spring arm collision
-    const back = this.dir.clone().negate();
+    const back = this.back.copy(this.dir).negate();
     // Thick probe: centre ray + 4 offset rays approximate a sphere cast (radius ~0.28 m).
     let allowed = this.dist;
-    const up = new THREE.Vector3(0, 1, 0);
-    const side = this.right;
-    for (const [ox, oy] of [[0, 0], [0.28, 0], [-0.28, 0], [0, 0.24], [0, -0.2]]) {
-      const o = origin.clone().addScaledVector(side, ox).addScaledVector(up, oy);
+    for (const [ox, oy] of PROBE_OFFSETS) {
+      const o = this.probe.copy(origin).addScaledVector(this.right, ox);
+      o.y += oy;
       const hit = this.world.raycast(o, back, this.dist + 0.35, true, true);
-      if (hit !== null) allowed = Math.min(allowed, Math.max(0.55, hit - 0.35));
+      // Never clamp the arm *beyond* the obstacle: a large minimum distance put the camera behind
+      // trunks/walls hugging the player. Very short arms hide the avatar instead (see Game).
+      if (hit !== null) allowed = Math.min(allowed, Math.max(MIN_ARM, hit - 0.35));
     }
+    this.armOrigin.copy(origin);
     // Pull in quickly but smoothly (no pops), ease back out slowly once clear.
     if (dt <= 0) this.arm = Math.min(this.arm, allowed);
     else if (allowed < this.arm) this.arm = Math.max(allowed, damp(this.arm, allowed, 22, dt));
@@ -176,8 +202,8 @@ export class CameraRig {
     // Never below terrain.
     const ground = this.world.terrainHeight(pos.x, pos.z) + 0.35;
     if (pos.y < ground) pos.y = ground;
-    const lookAt = origin.clone().addScaledVector(this.dir, 10);
-    this.lookMat.lookAt(pos, lookAt, new THREE.Vector3(0, 1, 0));
+    const lookAt = this.probe.copy(origin).addScaledVector(this.dir, 10);
+    this.lookMat.lookAt(pos, lookAt, UP);
     this.output.quaternion.setFromRotationMatrix(this.lookMat);
     // Shake (smooth noise, trauma^2)
     const s = this.trauma * this.trauma * this.shakeScale;
@@ -186,11 +212,16 @@ export class CameraRig {
       const nx = Math.sin(t * 1.1) * 0.6 + Math.sin(t * 2.7 + 1.3) * 0.4;
       const ny = Math.sin(t * 1.3 + 2.1) * 0.6 + Math.sin(t * 3.1 + 0.4) * 0.4;
       const nr = Math.sin(t * 0.9 + 4.2);
-      const e = new THREE.Euler(nx * 0.035 * s, ny * 0.035 * s, nr * 0.02 * s);
-      this.output.quaternion.multiply(new THREE.Quaternion().setFromEuler(e));
+      this.shakeEuler.set(nx * 0.035 * s, ny * 0.035 * s, nr * 0.02 * s);
+      this.output.quaternion.multiply(this.shakeQuat.setFromEuler(this.shakeEuler));
       pos.y += ny * 0.04 * s;
     }
     this.output.fov = this.baseFov + this.fovAdd;
+  }
+
+  /** Current spring-arm length (m) after collision. */
+  get armLength(): number {
+    return this.arm;
   }
 
   /** Current forward look direction (for aligning to cinematics). */

@@ -1,3 +1,4 @@
+import { gpuArgs } from './lib/browser.mjs';
 // Touch/responsive playtest across phone & tablet viewports (Chromium mobile emulation + CDP multi-touch).
 //   npm run dev   then   node scripts/mobile-test.mjs [--quick]
 import { chromium } from 'playwright';
@@ -13,7 +14,7 @@ const DEVICES = [
   ['ipad-landscape', 1180, 820, 2],
 ];
 mkdirSync('playtest-output/mobile', { recursive: true });
-const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: [...gpuArgs()] });
 let fails = 0;
 const quick = process.argv.includes('--quick');
 
