@@ -117,10 +117,14 @@ for (const [name, w, h, dpr] of DEVICES) {
   // Jump
   const y0 = (await S()).player.pos[1];
   await holdAt(await center('.tbtn.jump'), 80);
-  await wait(250);
-  s = await S();
-  check('JUMP button jumps', s.player.pos[1] - y0 > 0.4, `dy=${(s.player.pos[1] - y0).toFixed(2)}`);
-  await wait(900);
+  // Peak height over the jump (one sample at a wall-clock moment depends on the device's frame rate).
+  let peak = 0;
+  for (let i = 0; i < 12; i++) {
+    peak = Math.max(peak, (await S()).player.pos[1] - y0);
+    await wait(70);
+  }
+  check('JUMP button jumps', peak > 0.4, `peak=${peak.toFixed(2)}`);
+  await wait(500);
   check('no accidental pointer lock', !(await S()).pointerLocked);
   // Pause
   await holdAt(await center('.tbtn.pause'), 60);
@@ -134,10 +138,8 @@ for (const [name, w, h, dpr] of DEVICES) {
   const o4 = await overflow('.panel');
   check('settings panel fits', o4.length === 0, o4.join(','));
   await shot('06-settings');
-  await page.tap('.panel .actions button >> nth=-1').catch(() => {});
-  await wait(500);
-  if (await page.isVisible('.panel')) await page.tap('.panel .actions button >> nth=0');
-  await wait(500);
+  await page.tap('.panel .actions button[data-action="close-settings"]');
+  await wait(800); // (the panel's fade-out is 0.6 s)
   await page.tap('.pause button[data-action="resume"]');
   await wait(600);
   check('resume via tap', (await S()).gameState === 'playing');

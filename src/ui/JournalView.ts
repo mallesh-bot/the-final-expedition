@@ -60,7 +60,12 @@ export class JournalView {
     this.page.innerHTML = '';
     const c = COLLECTIBLES.find((x) => x.id === this.selected && this.found.has(x.id));
     if (!c) {
-      this.page.append(el('p', {}, ['Nothing recorded yet.']));
+      this.page.append(
+        el('div', {
+          class: 'empty',
+          html: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="32" cy="32" r="11"/><circle cx="32" cy="32" r="3.5" fill="currentColor"/><path d="M32 6v9M32 49v9M6 32h9M49 32h9M13.6 13.6l6.4 6.4M44 44l6.4 6.4M50.4 13.6L44 20M20 44l-6.4 6.4"/></svg><p>Nothing recorded yet. Pages, photographs and relics you find will be kept here.</p>',
+        }),
+      );
       return;
     }
     this.page.append(el('h3', {}, [c.title]), el('p', {}, [c.text]));

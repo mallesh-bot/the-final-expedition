@@ -5,28 +5,24 @@ import type { QualitySettings } from '../../systems/Quality';
 import type { Persistable } from '../../state/Persistable';
 import type { Sequence } from '../../cinematic/Sequence';
 import {
-  barkTextures,
   canvasClothTextures,
   foliageAtlas,
   glyphDrumTextures,
-  grassGroundTexture,
-  groundTextures,
   leafSpriteTexture,
   mistTexture,
-  mossTextures,
   muralTextures,
-  rustTextures,
   softDotTexture,
-  stoneTextures,
   waterfallTexture,
   waterNormalTexture,
-  woodTextures,
   type PBRSet,
 } from '../../render/textures/ProceduralTextures';
+import { photoEntries } from '../../render/textures/PhotoTextures';
 import { RotatingDrumsPuzzle } from '../../puzzles/RotatingDrumsPuzzle';
 import { collectible } from '../../story/Collectibles';
 import { CH1 } from '../../story/dialogue/ch1';
 import type { Line } from '../../story/Dialogue';
+import type { CharacterAvatar } from '../../animation/CharacterAvatar';
+import { damp } from '../../systems/noise';
 import { buildCh1World, type Ch1World } from './Ch1World';
 import {
   CAMP,
@@ -84,16 +80,8 @@ export default class Chapter1 implements Chapter {
   readonly manifest: AssetManifest = {
     id: 'ch1',
     entries: [
-      { key: 'tex.ground', type: 'procedural', factory: () => groundTextures(11, 512), weight: 3 },
-      { key: 'tex.grass', type: 'procedural', factory: () => grassGroundTexture(21, 512), weight: 2 },
-      { key: 'tex.stone', type: 'procedural', factory: () => stoneTextures(1, 512, [150, 140, 122]), weight: 4 },
-      { key: 'tex.cliff', type: 'procedural', factory: () => stoneTextures(5, 512, [158, 112, 88], 'cliff'), weight: 4 },
-      { key: 'tex.mason', type: 'procedural', factory: () => stoneTextures(9, 512, [160, 152, 132], 'masonry'), weight: 4 },
-      { key: 'tex.moss', type: 'procedural', factory: () => mossTextures(7, 256), weight: 1 },
-      { key: 'tex.bark', type: 'procedural', factory: () => barkTextures(31, 256), weight: 1 },
+      ...photoEntries(),
       { key: 'tex.canvas', type: 'procedural', factory: () => canvasClothTextures(41, 256), weight: 1 },
-      { key: 'tex.wood', type: 'procedural', factory: () => woodTextures(51, 256), weight: 1 },
-      { key: 'tex.rust', type: 'procedural', factory: () => rustTextures(61, 256), weight: 1 },
       { key: 'tex.waterN', type: 'procedural', factory: () => waterNormalTexture(71, 256), weight: 1 },
       { key: 'tex.foliage', type: 'procedural', factory: () => foliageAtlas(81, 1024), weight: 2 },
       { key: 'tex.glyphs', type: 'procedural', factory: () => glyphDrumTextures(91, 256), weight: 2 },
@@ -301,10 +289,35 @@ export default class Chapter1 implements Chapter {
         const lines = CH1.tobyTalk[this.tobyTalk % CH1.tobyTalk.length];
         this.tobyTalk++;
         dialogue.say(lines, true);
-        const t = this.w.toby?.userData.avatar as { driver: { setState: (s: string, o: object) => void } } | undefined;
-        t?.driver.setState('SIT', { fade: 0.3 });
       },
     });
+  }
+
+  /** Toby on his crate: looks up when Ines is near, talks with his hands when he has the line. */
+  private tobySpeaking = false;
+  private tobyLook = new THREE.Vector3();
+
+  private updateToby(dt: number): void {
+    const av = this.w.toby?.userData.avatar as CharacterAvatar | undefined;
+    if (!av) return;
+    const { player, dialogue } = this.ctx;
+    const line = dialogue.current;
+    const speaking = !!line && !line.radio && line.speaker === 'TOBY';
+    if (speaking !== this.tobySpeaking) {
+      this.tobySpeaking = speaking;
+      av.driver.setState(speaking ? 'SIT_TALK' : 'SIT', { fade: 0.5 });
+    }
+    av.driver.update(dt, { speed: 0, rate: 1 });
+    const L = av.layers;
+    const near = player.position.distanceTo(av.root.position) < 9;
+    L.lookTarget = player.head(this.tobyLook);
+    L.lookWeight = damp(L.lookWeight, near ? 0.85 : 0, 3, dt);
+    L.speech = speaking ? 1 : 0;
+    // A slow breath and shift of weight: the clip alone loops too tidily for a close-up.
+    const t = this.time;
+    L.bodyPitch = Math.sin(t * 1.1) * 0.018 + Math.sin(t * 0.23) * 0.03;
+    L.bodyRoll = Math.sin(t * 0.31 + 1) * 0.022;
+    L.update(dt, av.root, true);
   }
 
   private setupCameraHints(): void {
@@ -422,8 +435,7 @@ export default class Chapter1 implements Chapter {
       });
     }
     // Toby
-    const toby = this.w.toby?.userData.avatar as { driver: { update: (dt: number, p: { speed: number; rate: number }) => void } } | undefined;
-    toby?.driver.update(dt, { speed: 0, rate: 1 });
+    this.updateToby(dt);
 
     // Drum glow + gate door animation
     this.glow += (this.glowTarget - this.glow) * Math.min(1, dt * 1.5);

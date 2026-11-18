@@ -15,7 +15,7 @@ export type PlayerMode =
   | { kind: 'climb'; surface: ClimbSurface; u: number; v: number }
   | { kind: 'hang'; ledge: Ledge; t: number; hold: number }
   | { kind: 'climbUp'; ledge: Ledge; from: THREE.Vector3; to: THREE.Vector3; edge: THREE.Vector3; k: number }
-  | { kind: 'ledge'; narrow: NarrowLedge; t: number }
+  | { kind: 'ledge'; narrow: NarrowLedge; t: number; slip?: number }
   | { kind: 'vault'; from: THREE.Vector3; to: THREE.Vector3; topY: number; k: number }
   | { kind: 'mount'; from: THREE.Vector3; to: THREE.Vector3; fromYaw: number; toYaw: number; k: number; dur: number; next: PlayerMode }
   | { kind: 'locked'; timer: number }
@@ -29,6 +29,13 @@ interface PlayerSave {
   yaw: number;
 }
 
+export type ScriptRig =
+  | { kind: 'climb'; normal: THREE.Vector3 }
+  | { kind: 'hang'; normal: THREE.Vector3; ledgeY: number }
+  | { kind: 'sidle'; normal: THREE.Vector3 }
+  /** `wall` is a point on the face, `topY` the lip: she only leans out once she is over it. */
+  | { kind: 'rappel'; normal: THREE.Vector3; wall: THREE.Vector3; topY: number };
+
 export const SPEED = { walk: 1.75, run: 4.3, sprint: 6.6 };
 const ACCEL = 18;
 const DECEL = 22;
@@ -38,12 +45,16 @@ const COYOTE = 0.14;
 const JUMP_BUFFER = 0.14;
 const HARD_LAND = 4.0;
 const DEATH_FALL = 9.5;
-const CLIMB_SPEED = 1.15;
-const CLIMB_LATERAL = 0.95;
-const SHIMMY_SPEED = 0.95;
-const NARROW_SPEED = 1.05;
-const CLIMB_UP_TIME = 1.15;
-const VAULT_TIME = 0.62;
+const CLIMB_SPEED = 1.0;
+const CLIMB_LATERAL = 0.8;
+const SHIMMY_SPEED = 0.8;
+const NARROW_SPEED = 0.9;
+/** Seconds of pushing away from the wall before she loses the narrow ledge. */
+const NARROW_SLIP = 0.28;
+const CLIMB_UP_TIME = 1.55;
+const VAULT_TIME = 0.66;
+/** Seconds of committed forward roll after a hard landing at speed. */
+const ROLL_TIME = 0.95;
 
 
 /**
@@ -67,7 +78,6 @@ export class Player implements Persistable<PlayerSave> {
   private grabCooldown = 0;
   private lastLedge: Ledge | null = null;
   private lastPhase = 0;
-  private climbDist = 0;
   private hardLandLock = 0;
   private landing = false;
   readonly facing = new THREE.Vector3(0, 0, 1);
@@ -82,6 +92,14 @@ export class Player implements Persistable<PlayerSave> {
   speedCap = Infinity;
   /** Context prompt the HUD can show (e.g. "Climb"). */
   prompt: string | null = null;
+  /** Scripted moments can hold a traversal pose (rappel, cinematic hang) on the IK rig. */
+  scriptRig: ScriptRig | null = null;
+  private rollT = 0;
+  private leaping = false;
+  private lastSpeed = 0;
+  private accelLean = 0;
+  private landCompress = 0;
+  private caught = false;
   /** Below this height the player is lost (per level; deep gorges set it lower). */
   killY = -30;
 
@@ -93,6 +111,11 @@ export class Player implements Persistable<PlayerSave> {
     readonly avatar: CharacterAvatar,
   ) {
     this.motor = new CharacterMotor(world);
+    avatar.climb.onPlant = (isHand) => {
+      if (this.mode.kind === 'ledge') {
+        if (!isHand) this.events.emit('player:footstep', { surface: 'stone', intensity: 0.2 });
+      } else if (isHand) this.events.emit('traversal:grab', { kind: 'climb-step' });
+    };
   }
 
   get position(): THREE.Vector3 {
@@ -115,6 +138,9 @@ export class Player implements Persistable<PlayerSave> {
     this.yaw = yaw;
     this.speed = 0;
     this.airTime = 0;
+    this.rollT = 0;
+    this.landing = false;
+    this.scriptRig = null;
     this.syncAvatar();
     this.anim('IDLE', 0.01);
   }
@@ -126,6 +152,7 @@ export class Player implements Persistable<PlayerSave> {
       this.motor.velocity.set(0, 0, 0);
       this.speed = 0;
     } else if (this.mode.kind === 'scripted') {
+      this.scriptRig = null;
       this.mode = { kind: 'ground' };
       this.motor.kinematic = false;
       this.motor.teleport(this.motor.position);
@@ -133,6 +160,12 @@ export class Player implements Persistable<PlayerSave> {
   }
 
   /** Play a locked one-shot (interact/push) facing a target. */
+  /** World position of her head (for other characters' look-ats). */
+  head(out = new THREE.Vector3()): THREE.Vector3 {
+    const h = this.avatar.bones.head;
+    return h ? h.getWorldPosition(out) : out.copy(this.position).setY(this.position.y + 1.6);
+  }
+
   playAction(state: AnimState, face: THREE.Vector3 | null, duration: number): void {
     if (this.mode.kind !== 'ground' || !this.motor.grounded) return;
     if (face) this.yaw = Math.atan2(face.x - this.position.x, face.z - this.position.z);
@@ -196,15 +229,94 @@ export class Player implements Persistable<PlayerSave> {
 
     this.turnRate = angleDelta(prevYaw, this.yaw) / dt;
     this.syncAvatar();
+    // The climbing modes play a neutral base under the IK, at normal speed.
+    const k = this.mode.kind;
+    if (k === 'climb' || k === 'hang' || k === 'ledge' || k === 'mount') rate = 1;
     this.avatar.driver.update(dt, { speed: this.speed, rate });
-    this.avatar.layers.update(dt, this.avatar.root, this.turnRate, this.speed, this.mode.kind === 'ground' || this.mode.kind === 'scripted');
+    this.updateAttitude(dt);
+    this.avatar.layers.update(dt, this.avatar.root, k === 'ground' || k === 'scripted');
+    this.updateRig(dt);
     // Feet adapt to the terrain only while standing/moving on the ground (not mid-air, climbing,
     // hanging or vaulting, where the clip owns the legs). Fades so it never pops.
+    this.landCompress = damp(this.landCompress, 0, 7, dt);
     const ik = this.avatar.footIK;
+    ik.compress = this.landCompress;
     const ikOn = (this.mode.kind === 'ground' || this.mode.kind === 'locked') && this.motor.grounded && !this.landing;
     ik.weight = damp(ik.weight, ikOn ? 1 : 0, 10, dt);
     ik.update(dt, this.avatar.root, this.groundSampler);
     this.footsteps();
+  }
+
+  /** Body language: lean into acceleration and turns on the ground; attitude follows flight in the air. */
+  private updateAttitude(dt: number): void {
+    const L = this.avatar.layers;
+    const groundMode = this.mode.kind === 'ground' || this.mode.kind === 'locked';
+    L.airSpread = groundMode && !this.motor.grounded ? clamp((-this.motor.velocity.y - 3.5) / 5, 0, 1) : 0;
+    if (!groundMode) {
+      L.bodyPitch = 0;
+      L.bodyRoll = 0;
+      L.attitudeRate = 10;
+      this.lastSpeed = this.speed;
+      return;
+    }
+    const v = this.motor.velocity;
+    if (this.motor.grounded) {
+      const accel = clamp((this.speed - this.lastSpeed) / Math.max(dt, 1e-3), -24, 24);
+      this.accelLean = damp(this.accelLean, accel * 0.009, 9, dt);
+      L.bodyPitch = this.accelLean + (this.speed / SPEED.sprint) * 0.1;
+      // Into the turn (+roll leans to her right, a positive turn rate turns to her left).
+      L.bodyRoll = clamp(-this.turnRate * this.speed * 0.026, -0.2, 0.2);
+      L.attitudeRate = 8;
+    } else {
+      // Flight: carry the run's forward lean, come upright at the apex, brace on the way down.
+      // Air steering rolls the body gently into the sideways drift instead of spinning it.
+      const fwd = v.x * this.facing.x + v.z * this.facing.z;
+      const side = v.x * this.facing.z - v.z * this.facing.x; // + = drifting to her left
+      L.bodyPitch = clamp(fwd * 0.045, -0.2, 0.3) + clamp(v.y * -0.018, -0.14, 0.14);
+      L.bodyRoll = clamp(-side * 0.075, -0.3, 0.3);
+      L.attitudeRate = 5.5;
+    }
+    this.lastSpeed = this.speed;
+  }
+
+  private updateRig(dt: number): void {
+    const c = this.avatar.climb;
+    const root = this.avatar.root;
+    const m = this.mode;
+    switch (m.kind) {
+      case 'climb':
+        c.climb(dt, root, m.surface.normal);
+        break;
+      case 'hang':
+        c.hang(dt, root, m.ledge.normal, m.ledge.a.y);
+        break;
+      case 'mount':
+        if (m.next.kind === 'climb') c.climb(dt, root, m.next.surface.normal, m.to);
+        else if (m.next.kind === 'hang') c.hang(dt, root, m.next.ledge.normal, m.next.ledge.a.y, m.to, this.caught);
+        break;
+      case 'ledge':
+        c.sidle(dt, root, m.narrow.normal);
+        break;
+      case 'climbUp':
+        c.over(m.k, dt, root, m.ledge.normal, m.edge);
+        break;
+      case 'vault':
+        c.vault(m.k, root, this.tmp.lerpVectors(m.from, m.to, 0.5).setY(m.topY), this.facing);
+        break;
+      case 'scripted': {
+        const r = this.scriptRig;
+        if (r?.kind === 'climb') c.climb(dt, root, r.normal);
+        else if (r?.kind === 'hang') c.hang(dt, root, r.normal, r.ledgeY);
+        else if (r?.kind === 'sidle') c.sidle(dt, root, r.normal);
+        else if (r?.kind === 'rappel' && root.position.y < r.topY - 0.45) {
+          const d = this.tmp.subVectors(root.position, r.wall).dot(r.normal);
+          c.rappel(dt, root, r.normal, clamp(d, 0.45, 0.9));
+        } else c.release(dt);
+        break;
+      }
+      default:
+        c.release(dt);
+    }
   }
 
   private groundSampler = (x: number, z: number, maxY: number, normalOut: THREE.Vector3): number => {
@@ -257,6 +369,21 @@ export class Player implements Persistable<PlayerSave> {
     const inputMag = Math.min(1, this.moveDir.length());
     if (inputMag > 0.001) this.moveDir.normalize();
 
+    // Committed roll after a hard landing at speed: momentum carries her, no steering.
+    if (this.rollT > 0) {
+      this.rollT -= dt;
+      const sp = Math.max(2.4, this.speed * (1 - dt * 0.9));
+      m.velocity.x = this.facing.x * sp;
+      m.velocity.z = this.facing.z * sp;
+      const evr = m.update(dt);
+      this.speed = Math.hypot(m.velocity.x, m.velocity.z);
+      if (this.rollT <= 0) {
+        this.landing = false;
+        this.locomotionAnim();
+      }
+      if (evr.landed) this.onLanded(evr.landed.fallHeight, evr.landed.surface);
+      return 1;
+    }
     this.sprinting = this.input.held('sprint') && inputMag > 0.5 && m.grounded;
     let target = inputMag * (this.sprinting ? SPEED.sprint : SPEED.run);
     target = Math.min(target, this.speedCap);
@@ -266,10 +393,14 @@ export class Player implements Persistable<PlayerSave> {
     }
 
     // Facing
-    if (inputMag > 0.05) {
-      const want = Math.atan2(this.moveDir.x, this.moveDir.z);
-      const turnSpeed = m.grounded ? (this.speed < 1 ? 16 : 10) : 3;
-      this.yaw = dampAngle(this.yaw, want, turnSpeed, dt);
+    if (m.grounded) {
+      if (inputMag > 0.05) this.yaw = dampAngle(this.yaw, Math.atan2(this.moveDir.x, this.moveDir.z), this.speed < 1 ? 13 : 10, dt);
+    } else {
+      // In the air the body follows where she is actually flying; steering shows as a lean
+      // (see updateAttitude), never as the whole character spinning to the stick.
+      const hv = Math.hypot(m.velocity.x, m.velocity.z);
+      if (hv > 1.2) this.yaw = dampAngle(this.yaw, Math.atan2(m.velocity.x, m.velocity.z), 4.5, dt);
+      else if (inputMag > 0.05) this.yaw = dampAngle(this.yaw, Math.atan2(this.moveDir.x, this.moveDir.z), 3, dt);
     }
 
     // Velocity (accelerate toward desired, in the movement direction but mostly along facing
@@ -331,7 +462,11 @@ export class Player implements Persistable<PlayerSave> {
       } else {
         m.jump(JUMP_V);
       }
-      this.anim('JUMP', 0.08, true);
+      // A running take-off drives off one leg; a standing jump gathers and springs.
+      this.leaping = this.speed > SPEED.walk + 0.5;
+      // (the clip's wind-up is skipped: the impulse has already left the ground)
+      if (this.leaping) this.anim('LEAP', 0.13, true);
+      else this.avatar.driver.setState('JUMP', { fade: 0.08, restart: true, startAt: 0.3 });
       this.airTime = 0;
     }
 
@@ -363,8 +498,9 @@ export class Player implements Persistable<PlayerSave> {
           return 1;
         }
       }
-      if (m.velocity.y < -2.5 && this.airTime > 0.28) this.anim('FALL', 0.3);
+      if (m.velocity.y < (this.leaping ? -6.5 : -2.5) && this.airTime > 0.32) this.anim('FALL', 0.3);
     } else {
+      this.leaping = false;
       this.lastLedge = null;
       this.airTime = 0;
       // Narrow ledge auto-enter
@@ -399,13 +535,21 @@ export class Player implements Persistable<PlayerSave> {
     const endLanding = () => {
       this.landing = false;
     };
-    if (h > HARD_LAND) {
-      this.hardLandLock = 0.45;
+    // Knees always absorb the impact, in proportion to the drop.
+    if (h > 0.25) this.landCompress = Math.max(this.landCompress, clamp(0.03 + h * 0.08, 0, 0.28));
+    if (h > HARD_LAND && this.speed > 2.5) {
+      // At speed a hard landing turns into a roll, keeping momentum.
+      this.rollT = ROLL_TIME;
+      this.landing = true;
+      // (entering past the clip's opening dive: she is already low from the impact)
+      this.avatar.driver.setState('ROLL', { fade: 0.12, restart: true, startAt: 0.35 });
+    } else if (h > HARD_LAND) {
+      this.hardLandLock = 0.5;
       this.motor.velocity.x *= 0.2;
       this.motor.velocity.z *= 0.2;
       this.landing = true;
-      this.avatar.driver.setState('LAND', { fade: 0.06, restart: true, onDone: endLanding });
-    } else if (h > 1.3 && this.speed < 2.5) {
+      this.avatar.driver.setState('LAND_HARD', { fade: 0.06, restart: true, onDone: endLanding });
+    } else if (h > 0.6 && this.speed < 2.5) {
       this.landing = true;
       this.avatar.driver.setState('LAND', { fade: 0.08, restart: true, onDone: endLanding });
     } else {
@@ -423,6 +567,7 @@ export class Player implements Persistable<PlayerSave> {
   }
 
   private mountHang(l: Ledge, t: number): void {
+    this.caught = !this.motor.grounded && this.mode.kind === 'ground';
     const to = this.traversal.hangPosition(l, t, new THREE.Vector3());
     const toYaw = Math.atan2(-l.normal.x, -l.normal.z);
     this.startMount(to, toYaw, 0.18, { kind: 'hang', ledge: l, t, hold: 0 });
@@ -450,8 +595,9 @@ export class Player implements Persistable<PlayerSave> {
     const s = c.surface;
     const mv = this.input.move();
     const maxV = s.height - HANG_DROP;
-    c.u = clamp(c.u + mv.x * CLIMB_LATERAL * dt, 0.3, s.width - 0.3);
-    c.v = c.v + mv.y * CLIMB_SPEED * dt;
+    const pull = this.avatar.climb.pull;
+    c.u = clamp(c.u + mv.x * CLIMB_LATERAL * pull * dt, 0.3, s.width - 0.3);
+    c.v = c.v + mv.y * CLIMB_SPEED * pull * dt;
     this.prompt = null;
     // Top: transition onto the linked ledge.
     if (c.v >= maxV) {
@@ -484,14 +630,8 @@ export class Player implements Persistable<PlayerSave> {
     }
     this.traversal.climbPoint(s, c.u, c.v, this.position);
     this.yaw = Math.atan2(-s.normal.x, -s.normal.z);
-    const moving = Math.abs(mv.y) + Math.abs(mv.x) * 0.8;
-    this.climbDist += moving * dt;
-    if (this.climbDist > 0.55) {
-      this.climbDist = 0;
-      this.events.emit('traversal:grab', { kind: 'climb-step' });
-    }
     this.anim('CLIMB', 0.2);
-    return mv.y !== 0 ? Math.sign(mv.y) * Math.max(0.6, Math.abs(mv.y)) : moving > 0 ? 0.7 : 0;
+    return 1;
   }
 
   private dismountToGround(): void {
@@ -549,11 +689,6 @@ export class Player implements Persistable<PlayerSave> {
       }
     }
     if (Math.abs(mv.x) > 0.1) {
-      this.climbDist += Math.abs(dt_);
-      if (this.climbDist > 0.45) {
-        this.climbDist = 0;
-        this.events.emit('traversal:grab', { kind: 'shimmy' });
-      }
       this.anim('SHIMMY', 0.18);
       // shimmy clip moves toward character's left (+X local) => negative player-right.
       return -Math.sign(mv.x);
@@ -614,6 +749,21 @@ export class Player implements Persistable<PlayerSave> {
     const v = Math.abs(along) > 0.2 ? Math.sign(along) * NARROW_SPEED * Math.min(1, Math.abs(along) * 1.3) : 0;
     n.t += v * dt;
     this.speed = 0;
+    // Pushing away from the wall (or jumping, or dropping) takes her off the ledge.
+    const away = (Math.sin(camYaw) * mv.y - Math.cos(camYaw) * mv.x) * nl.normal.x + (Math.cos(camYaw) * mv.y + Math.sin(camYaw) * mv.x) * nl.normal.z;
+    // (Only a clear push counts: walking along the ledge with the camera at an angle must stay safe.)
+    n.slip = away > 0.6 && away > Math.abs(along) ? (n.slip ?? 0) + dt : 0;
+    if (n.slip > NARROW_SLIP || this.input.pressed('jump') || this.input.pressed('drop')) {
+      const m = this.motor;
+      m.velocity.set(nl.normal.x * 2.6, 1.6, nl.normal.z * 2.6);
+      m.beginFall();
+      this.mode = { kind: 'ground' };
+      this.grabCooldown = 0.5;
+      this.leaping = false;
+      this.airTime = 0;
+      this.anim('FALL', 0.2);
+      return 1;
+    }
     if (n.t < 0.05 || n.t > len - 0.05) {
       // Step off the end back into normal movement.
       const p = this.traversal.narrowPoint(nl, clamp(n.t, 0, len), new THREE.Vector3());
@@ -629,11 +779,6 @@ export class Player implements Persistable<PlayerSave> {
     this.yaw = dampAngle(this.yaw, Math.atan2(-nl.normal.x, -nl.normal.z), 10, dt);
     const playerRight = this.tmp.set(nl.normal.z, 0, -nl.normal.x);
     if (Math.abs(v) > 0.01) {
-      this.climbDist += Math.abs(v) * dt;
-      if (this.climbDist > 0.5) {
-        this.climbDist = 0;
-        this.events.emit('player:footstep', { surface: 'stone', intensity: 0.2 });
-      }
       this.anim('LEDGE', 0.25);
       // ledge_step clip moves toward character's left (= -playerRight).
       return -Math.sign(dir.dot(playerRight) * v);

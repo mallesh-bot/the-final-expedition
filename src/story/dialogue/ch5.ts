@@ -3,7 +3,7 @@ import type { Line } from '../Dialogue';
 /** Chapter 5 — THE FINAL EXPEDITION. STORY_BIBLE §12 voice, §14.6–14.7 (recording is canon). */
 export const CH5 = {
   intro: [
-    { speaker: 'INES', text: "Water. Knee deep. Cold." },
+    { speaker: 'INES', text: "Through her doorway, and down. Water. Knee deep. Cold." },
     { speaker: 'INES', text: "Marta said the lower passage floods. She'd know." },
   ] as Line[],
   antechamber: [{ speaker: 'INES', text: 'Someone lived down here. Not for long. Long enough.' }] as Line[],
@@ -24,6 +24,7 @@ export const CH5 = {
     { speaker: 'MARTA', text: 'Whoever you are: put it back if you moved it. Close the gate behind you. And if you see the light come down at noon — stand still a minute. It\'s worth it. — M.', duration: 9 },
   ] as Line[],
   corwinBreaks: [
+    { speaker: 'INES', text: "Vesna never gave it to her. Mum died thinking she'd simply been left." },
     { speaker: 'CORWIN', text: '…He knew.' },
     { speaker: 'CORWIN', text: 'All my life I thought they ruined him. He ruined them. And then he let the world call them dead.' },
     { speaker: 'INES', text: 'Now you know.' },
@@ -78,5 +79,5 @@ export const CH5 = {
     { speaker: 'CORWIN', text: "I'll tell them. All of it. The families deserve that much." },
     { speaker: 'INES', text: 'Tell them the truth. Leave out the map.' },
   ] as Line[],
-  drowned: [{ speaker: 'INES', text: 'Again. Faster this time.' }] as Line[],
+  drowned: [{ speaker: 'INES', text: 'Not down here. Not today.' }] as Line[],
 };

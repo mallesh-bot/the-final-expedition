@@ -68,6 +68,8 @@ export const CH4 = {
     { speaker: 'INES', text: "…I'm alive. Don't — don't come after me. You can't." },
     { speaker: 'TOBY', text: "I can see the camp from here. Corwin — Corwin's going down the other side. The sanctum." },
     { speaker: 'INES', text: 'Then so am I.' },
+    { speaker: 'INES', text: "There's a ribbon on the rock below me. Red. Her knot." },
+    { speaker: 'INES', text: 'A cut doorway under it, and water running out. Marta marked a way in.' },
   ] as Line[],
-  fallRespawn: [{ speaker: 'INES', text: 'Again. Faster.' }] as Line[],
+  fallRespawn: [{ speaker: 'INES', text: 'Not like that. Move.' }] as Line[],
 };

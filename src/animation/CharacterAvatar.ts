@@ -3,6 +3,7 @@ import type { AssetManager } from '../assets/AssetManager';
 import { GltfAnimationDriver, type CharacterDef } from './GltfAnimationDriver';
 import { AdditiveLayers } from './AdditiveLayers';
 import { FootIK } from './FootIK';
+import { ClimbController } from './ClimbController';
 import type { AnimationDriver } from './AnimationDriver';
 import characters from '../assets/characters.json';
 
@@ -52,13 +53,22 @@ export class CharacterAvatar {
       chest: this.bones.chest,
       neck: this.bones.neck,
       head: this.bones.head,
+      upperArmL: scene.getObjectByName('upperarm_l'),
+      upperArmR: scene.getObjectByName('upperarm_r'),
+      lowerArmL: scene.getObjectByName('lowerarm_l'),
+      lowerArmR: scene.getObjectByName('lowerarm_r'),
+      thighL: this.bones.thighL,
+      thighR: this.bones.thighR,
     });
+    this.climb = new ClimbController(scene);
     this.footIK = new FootIK(this.bones.hips, [
       { thigh: this.bones.thighL, calf: this.bones.calfL, foot: this.bones.footL },
       { thigh: this.bones.thighR, calf: this.bones.calfR, foot: this.bones.footR },
     ]);
   }
 
+  /** Full-body climbing / mantling / vaulting IK. */
+  readonly climb: ClimbController;
   /** Terrain-adaptive feet (player only; NPCs leave weight at 0). */
   readonly footIK: FootIK;
 

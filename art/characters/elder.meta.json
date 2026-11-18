@@ -94,6 +94,106 @@
       "source": "legacy:vault",
       "frames": 20,
       "bones": 17
+    },
+    "climb_over": {
+      "source": "ual2:ClimbUp_1m",
+      "frames": 21,
+      "bones": 65
+    },
+    "roll": {
+      "source": "ual1:Roll",
+      "frames": 45,
+      "bones": 65
+    },
+    "sit_enter": {
+      "source": "ual1:Sitting_Enter",
+      "frames": 40,
+      "bones": 65
+    },
+    "sit_exit": {
+      "source": "ual1:Sitting_Exit",
+      "frames": 32,
+      "bones": 65
+    },
+    "sit_talk": {
+      "source": "ual1:Sitting_Talking_Loop",
+      "frames": 89,
+      "bones": 65
+    },
+    "kneel": {
+      "source": "ual1:Fixing_Kneeling",
+      "frames": 157,
+      "bones": 65
+    },
+    "pickup": {
+      "source": "ual1:PickUp_Table",
+      "frames": 26,
+      "bones": 65
+    },
+    "fold_arms": {
+      "source": "ual2:Idle_FoldArms_Loop",
+      "frames": 76,
+      "bones": 65
+    },
+    "shake_head": {
+      "source": "ual2:Idle_No_Loop",
+      "frames": 76,
+      "bones": 65
+    },
+    "nod": {
+      "source": "ual2:Yes",
+      "frames": 76,
+      "bones": 65
+    },
+    "hit": {
+      "source": "ual2:Hit_Knockback",
+      "frames": 26,
+      "bones": 65
+    },
+    "death": {
+      "source": "ual1:Death01",
+      "frames": 73,
+      "bones": 65
+    },
+    "crouch": {
+      "source": "ual1:Crouch_Idle_Loop",
+      "frames": 89,
+      "bones": 65
+    },
+    "rail": {
+      "source": "ual2:Idle_Rail_Loop",
+      "frames": 76,
+      "bones": 65
+    },
+    "air_start": {
+      "source": "ual2:NinjaJump_Start",
+      "frames": 30,
+      "bones": 65
+    },
+    "air_loop": {
+      "source": "ual2:NinjaJump_Idle_Loop",
+      "frames": 61,
+      "bones": 65
+    },
+    "air_land": {
+      "source": "ual2:NinjaJump_Land",
+      "frames": 39,
+      "bones": 65
+    },
+    "slide": {
+      "source": "ual2:Slide_Loop",
+      "frames": 61,
+      "bones": 65
+    },
+    "open": {
+      "source": "ual2:Chest_Open",
+      "frames": 42,
+      "bones": 65
+    },
+    "swim": {
+      "source": "ual1:Swim_Fwd_Loop",
+      "frames": 41,
+      "bones": 65
     }
   },
   "strides": {

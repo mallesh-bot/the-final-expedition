@@ -50,6 +50,13 @@ export class Rockfall {
     if (this.t < 0) this.t = 0;
   }
 
+  /** Remove landed rocks (and their shadows) where the ground has gone. */
+  hideWhere(test: (d: RockDrop) => boolean): void {
+    this.rocks.forEach((r, i) => {
+      if (test(this.drops[i])) r.mesh.visible = r.shadow.visible = false;
+    });
+  }
+
   reset(): void {
     this.t = -1;
     for (const r of this.rocks) {

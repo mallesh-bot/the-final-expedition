@@ -5,26 +5,21 @@ import { Heightfield } from '../../physics/Heightfield';
 import { Sky } from '../../render/Sky';
 import { fogUniforms, globalUniforms } from '../../render/HeightFog';
 import {
-  barkTextures,
   canvasClothTextures,
   foliageAtlas,
   glyphDrumTextures,
-  grassGroundTexture,
-  groundTextures,
   leafSpriteTexture,
   mistTexture,
-  mossTextures,
   muralTextures,
-  rustTextures,
   softDotTexture,
-  stoneTextures,
   waterfallTexture,
   waterNormalTexture,
-  woodTextures,
   type PBRSet,
 } from '../../render/textures/ProceduralTextures';
 import type { AssetManifest } from '../../assets/AssetManager';
-import { createFoliageMaterial, createWaterMaterial, createWaterfallMaterial, createWorldMaterial } from '../../render/materials/WorldMaterials';
+import { createFoliageMaterial, createWaterMaterial, createWaterfallMaterial, createWorldMaterial, worldDetail } from '../../render/materials/WorldMaterials';
+import { photoEntries } from '../../render/textures/PhotoTextures';
+import { flowPlaneGeometry } from '../../world/Water';
 import { TerrainTiles } from '../../world/Terrain';
 import { addRockCollider, displacedRock, displacedSlab, InstanceBatch } from '../../world/RockKit';
 import { ChunkedInstances, broadleafGeometry, farTreeGeometry, fernGeometry, grassGeometry, rainforestTree, treeFernGeometry, vineGeometry } from '../../world/Vegetation';
@@ -41,16 +36,8 @@ export function standardManifest(id: string, extra: AssetManifest['entries'] = [
   return {
     id,
     entries: [
-      { key: 'tex.ground', type: 'procedural', factory: () => groundTextures(11, 512), weight: 3 },
-      { key: 'tex.grass', type: 'procedural', factory: () => grassGroundTexture(21, 512), weight: 2 },
-      { key: 'tex.stone', type: 'procedural', factory: () => stoneTextures(1, 512, [150, 140, 122]), weight: 4 },
-      { key: 'tex.cliff', type: 'procedural', factory: () => stoneTextures(5, 512, opts.cliffTint ?? [158, 112, 88], 'cliff'), weight: 4 },
-      { key: 'tex.mason', type: 'procedural', factory: () => stoneTextures(9, 512, opts.masonTint ?? [160, 152, 132], 'masonry'), weight: 4 },
-      { key: 'tex.moss', type: 'procedural', factory: () => mossTextures(7, 256), weight: 1 },
-      { key: 'tex.bark', type: 'procedural', factory: () => barkTextures(31, 256), weight: 1 },
+      ...photoEntries(opts),
       { key: 'tex.canvas', type: 'procedural', factory: () => canvasClothTextures(41, 256), weight: 1 },
-      { key: 'tex.wood', type: 'procedural', factory: () => woodTextures(51, 256), weight: 1 },
-      { key: 'tex.rust', type: 'procedural', factory: () => rustTextures(61, 256), weight: 1 },
       { key: 'tex.waterN', type: 'procedural', factory: () => waterNormalTexture(71, 256), weight: 1 },
       { key: 'tex.foliage', type: 'procedural', factory: () => foliageAtlas(81, 1024), weight: 2 },
       { key: 'tex.glyphs', type: 'procedural', factory: () => glyphDrumTextures(91, 256), weight: 2 },
@@ -159,14 +146,15 @@ export class LevelKit {
     this.props.name = 'props';
     ctx.scene.add(this.root);
     this.rnd = mulberry32(seed);
+    worldDetail.level = ctx.quality().preset === 'low' ? 0 : ctx.quality().preset === 'medium' ? 1 : 2;
     const stone = tex('tex.stone');
     const moss = tex('tex.moss');
     const track = <T extends { dispose(): void }>(x: T) => (this.disposables.push(x), x);
-    this.rockMat = track(createWorldMaterial({ set: stone, moss: { set: moss, amount: 0.95, min: 0.3 }, triScale: 0.22, vertexColors: true, roughness: 0.92 }));
-    this.cliffMat = track(createWorldMaterial({ set: tex('tex.cliff'), moss: { set: moss, amount: opts.cliffMoss ?? 0.8, min: 0.5 }, triScale: 0.12, vertexColors: true, roughness: 0.95, normalScale: 1.2 }));
-    this.masonMat = track(createWorldMaterial({ set: tex('tex.mason'), moss: { set: moss, amount: opts.masonMoss ?? 0.85, min: 0.42 }, triScale: 0.32, vertexColors: true, roughness: 0.9 }));
+    this.rockMat = track(createWorldMaterial({ set: stone, moss: { set: moss, amount: 0.95, min: 0.3 }, triScale: 0.3, vertexColors: true, roughness: 0.92 }));
+    this.cliffMat = track(createWorldMaterial({ set: tex('tex.cliff'), moss: { set: moss, amount: opts.cliffMoss ?? 0.8, min: 0.5 }, triScale: 0.2, vertexColors: true, roughness: 0.95, normalScale: 1.25 }));
+    this.masonMat = track(createWorldMaterial({ set: tex('tex.mason'), moss: { set: moss, amount: opts.masonMoss ?? 0.85, min: 0.42 }, triScale: 0.3, vertexColors: true, roughness: 0.9, normalScale: 0.7 }));
     this.soilMat = track(createWorldMaterial({ set: tex('tex.ground'), triScale: 0.3, vertexColors: true, roughness: 0.96, normalScale: 1.1 }));
-    this.darkMat = track(createWorldMaterial({ set: tex('tex.mason'), moss: { set: moss, amount: 0.25, min: 0.7 }, triScale: 0.32, vertexColors: true, roughness: 0.94 }));
+    this.darkMat = track(createWorldMaterial({ set: tex('tex.mason'), moss: { set: moss, amount: 0.25, min: 0.7 }, triScale: 0.3, vertexColors: true, roughness: 0.94, normalScale: 0.7 }));
     const bark = tex('tex.bark');
     this.barkMat = track(new THREE.MeshStandardMaterial({ map: bark.map, normalMap: bark.normalMap, roughness: 0.92, color: 0xb8b0a0 }));
     const glyphs = tex('tex.glyphs');
@@ -225,6 +213,10 @@ export class LevelKit {
     if (!o.hideSky) this.root.add(this.sky.mesh);
     this.env = this.sky.bakeEnvironment(ctx.renderer.renderer);
     this.waterMat.envMap = this.env;
+    // (a material's own envMap ignores scene.environmentIntensity: dark rooms must not reflect daylight)
+    // Indoors the baked sky is not overhead at all, so it barely shows in the water.
+    this.waterMat.envMapIntensity = o.envIntensity * (o.hideSky ? 0.3 : 0.85);
+    if (o.hideSky) this.waterMat.color.multiplyScalar(0.45);
     scene.environment = this.env;
     (scene as unknown as { environmentIntensity: number }).environmentIntensity = o.envIntensity;
     scene.background = o.hideSky ? o.fogColor.clone() : null;
@@ -264,7 +256,7 @@ export class LevelKit {
     const terrainMat = this.track(
       createWorldMaterial({
         set: this.tex('tex.ground'),
-        splat: { grass: this.texture('tex.grass'), rock: this.tex('tex.stone'), rockScale: 0.14 },
+        splat: { grass: this.texture('tex.grass'), rock: this.tex('tex.stone'), rockScale: 0.2 },
         triScale: 0.3,
         vertexColors: true,
         roughness: 0.95,
@@ -712,14 +704,14 @@ export class LevelKit {
   }
 
   // ------------------------------------------------------------------ water
-  waterfall(top: THREE.Vector3, bottom: THREE.Vector3, width: number, outward: THREE.Vector3, poolY: number, buildFX: typeof import('../../world/WaterfallFX').buildWaterfallFX): THREE.Object3D {
-    const fx = buildFX({ top, bottom, width, outward, material: this.fallMat, poolY, dot: this.texture('tex.dot'), mist: this.texture('tex.mist'), particleScale: this.ctx.quality().particleScale });
+  waterfall(top: THREE.Vector3, bottom: THREE.Vector3, width: number, outward: THREE.Vector3, poolY: number, buildFX: typeof import('../../world/WaterfallFX').buildWaterfallFX, extra: { throwDist?: number; rippleRadius?: number } = {}): THREE.Object3D {
+    const fx = buildFX({ ...extra, top, bottom, width, outward, material: this.fallMat, poolY, dot: this.texture('tex.dot'), mist: this.texture('tex.mist'), particleScale: this.ctx.quality().particleScale });
     this.root.add(fx);
     return fx;
   }
 
   waterPlane(cx: number, y: number, cz: number, w: number, d: number, yaw = 0, parent: THREE.Object3D = this.root): THREE.Mesh {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2), this.waterMat);
+    const m = new THREE.Mesh(flowPlaneGeometry(w, d), this.waterMat);
     m.position.set(cx, y, cz);
     m.rotation.y = yaw;
     m.renderOrder = 2;

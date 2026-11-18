@@ -8,38 +8,201 @@
   },
   "aliases": {
     "legacy": {
-      "Hips": "pelvis", "Spine": "spine_01", "Chest": "spine_03", "Neck": "neck_01", "Head": "head",
-      "UpperArmL": "upperarm_l", "LowerArmL": "lowerarm_l", "HandL": "hand_l",
-      "UpperArmR": "upperarm_r", "LowerArmR": "lowerarm_r", "HandR": "hand_r",
-      "UpperLegL": "thigh_l", "LowerLegL": "calf_l", "FootL": "foot_l",
-      "UpperLegR": "thigh_r", "LowerLegR": "calf_r", "FootR": "foot_r"
+      "Hips": "pelvis",
+      "Spine": "spine_01",
+      "Chest": "spine_03",
+      "Neck": "neck_01",
+      "Head": "head",
+      "UpperArmL": "upperarm_l",
+      "LowerArmL": "lowerarm_l",
+      "HandL": "hand_l",
+      "UpperArmR": "upperarm_r",
+      "LowerArmR": "lowerarm_r",
+      "HandR": "hand_r",
+      "UpperLegL": "thigh_l",
+      "LowerLegL": "calf_l",
+      "FootL": "foot_l",
+      "UpperLegR": "thigh_r",
+      "LowerLegR": "calf_r",
+      "FootR": "foot_r"
     }
   },
-  "hips": { "ual1": "pelvis", "ual1_rm": "pelvis", "ual2": "pelvis", "legacy": "Hips" },
+  "hips": {
+    "ual1": "pelvis",
+    "ual1_rm": "pelvis",
+    "ual2": "pelvis",
+    "legacy": "Hips"
+  },
   "clips": {
-    "idle": ["ual1", "Idle_Loop"],
-    "walk": ["ual1", "Walk_Loop"],
-    "run": ["ual1", "Jog_Fwd_Loop"],
-    "sprint": ["ual1", "Sprint_Loop"],
-    "jump": ["ual1", "Jump_Start"],
-    "fall": ["ual1", "Jump_Loop"],
-    "land": ["ual1", "Jump_Land"],
-    "interact": ["ual1", "Interact"],
-    "push": ["ual1", "Push_Loop"],
-    "sit": ["ual1", "Sitting_Idle_Loop"],
-    "talk": ["ual1", "Idle_Talking_Loop"],
-    "look_around": ["ual1", "Idle_Loop"],
-    "climb_up": ["legacy", "climb_up"],
-    "climb": ["legacy", "climb"],
-    "hang": ["legacy", "hang"],
-    "shimmy": ["legacy", "shimmy"],
-    "ledge_step": ["legacy", "ledge_step"],
-    "ledge_idle": ["legacy", "ledge_idle"],
-    "vault": ["legacy", "vault"]
+    "idle": [
+      "ual1",
+      "Idle_Loop"
+    ],
+    "walk": [
+      "ual1",
+      "Walk_Loop"
+    ],
+    "run": [
+      "ual1",
+      "Jog_Fwd_Loop"
+    ],
+    "sprint": [
+      "ual1",
+      "Sprint_Loop"
+    ],
+    "jump": [
+      "ual1",
+      "Jump_Start"
+    ],
+    "fall": [
+      "ual1",
+      "Jump_Loop"
+    ],
+    "land": [
+      "ual1",
+      "Jump_Land"
+    ],
+    "interact": [
+      "ual1",
+      "Interact"
+    ],
+    "push": [
+      "ual1",
+      "Push_Loop"
+    ],
+    "sit": [
+      "ual1",
+      "Sitting_Idle_Loop"
+    ],
+    "talk": [
+      "ual1",
+      "Idle_Talking_Loop"
+    ],
+    "look_around": [
+      "ual1",
+      "Idle_Loop"
+    ],
+    "climb_up": [
+      "legacy",
+      "climb_up"
+    ],
+    "climb": [
+      "legacy",
+      "climb"
+    ],
+    "hang": [
+      "legacy",
+      "hang"
+    ],
+    "shimmy": [
+      "legacy",
+      "shimmy"
+    ],
+    "ledge_step": [
+      "legacy",
+      "ledge_step"
+    ],
+    "ledge_idle": [
+      "legacy",
+      "ledge_idle"
+    ],
+    "vault": [
+      "legacy",
+      "vault"
+    ],
+    "climb_over": [
+      "ual2",
+      "ClimbUp_1m"
+    ],
+    "roll": [
+      "ual1",
+      "Roll"
+    ],
+    "sit_enter": [
+      "ual1",
+      "Sitting_Enter"
+    ],
+    "sit_exit": [
+      "ual1",
+      "Sitting_Exit"
+    ],
+    "sit_talk": [
+      "ual1",
+      "Sitting_Talking_Loop"
+    ],
+    "kneel": [
+      "ual1",
+      "Fixing_Kneeling"
+    ],
+    "pickup": [
+      "ual1",
+      "PickUp_Table"
+    ],
+    "fold_arms": [
+      "ual2",
+      "Idle_FoldArms_Loop"
+    ],
+    "shake_head": [
+      "ual2",
+      "Idle_No_Loop"
+    ],
+    "nod": [
+      "ual2",
+      "Yes"
+    ],
+    "hit": [
+      "ual2",
+      "Hit_Knockback"
+    ],
+    "death": [
+      "ual1",
+      "Death01"
+    ],
+    "crouch": [
+      "ual1",
+      "Crouch_Idle_Loop"
+    ],
+    "rail": [
+      "ual2",
+      "Idle_Rail_Loop"
+    ],
+    "air_start": [
+      "ual2",
+      "NinjaJump_Start"
+    ],
+    "air_loop": [
+      "ual2",
+      "NinjaJump_Idle_Loop"
+    ],
+    "air_land": [
+      "ual2",
+      "NinjaJump_Land"
+    ],
+    "slide": [
+      "ual2",
+      "Slide_Loop"
+    ],
+    "open": [
+      "ual2",
+      "Chest_Open"
+    ],
+    "swim": [
+      "ual1",
+      "Swim_Fwd_Loop"
+    ]
   },
   "strides": {
-    "walk": ["ual1_rm", "Walk_Loop"],
-    "run": ["ual1_rm", "Jog_Fwd_Loop"],
-    "sprint": ["ual1_rm", "Sprint_Loop"]
+    "walk": [
+      "ual1_rm",
+      "Walk_Loop"
+    ],
+    "run": [
+      "ual1_rm",
+      "Jog_Fwd_Loop"
+    ],
+    "sprint": [
+      "ual1_rm",
+      "Sprint_Loop"
+    ]
   }
 }

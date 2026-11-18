@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { waterfallMesh } from '../../world/Water';
+import { buildWaterfallFX } from '../../world/WaterfallFX';
 import type { CheckpointDef } from '../Chapter';
 import type { AmbienceConfig } from '../../audio/Ambience';
 import type { Sequence } from '../../cinematic/Sequence';
@@ -117,6 +119,7 @@ export default class Chapter3 extends ChapterBase {
     k.particles('dust', 360, v(0, FLOOR, 24), v(16, 7, 16), new THREE.Color(1, 0.88, 0.66), 0.08, 0.6, 31);
     k.particles('dust', 520, v(0, FLOOR, 56), v(24, 9, 24), new THREE.Color(1, 0.88, 0.66), 0.08, 0.6, 32);
     k.particles('dust', 200, v(0, 0, 7), v(4, 5, 14), new THREE.Color(1, 0.88, 0.66), 0.07, 0.5, 33);
+    this.buildRunningWater();
     k.finish();
     this.ctx.traversal.load({ climbs: [], ledges: [], narrows: [], vaults: [], jumps: [] });
     this.toby = this.npc('toby', v(0, 0, -6), 0);
@@ -209,8 +212,9 @@ export default class Chapter3 extends ChapterBase {
         rung.position.set(0, r, 0);
         ladder.add(rung);
       }
-      ladder.position.set(5.2, FLOOR, H2.z1 - 1.25);
-      ladder.rotation.x = -0.22;
+      // Foot out from the wall, top resting on the carved face.
+      ladder.position.set(5.2, FLOOR, H2.z1 - 1.36);
+      ladder.rotation.x = 0.21;
       k.props.add(ladder);
       k.place(P.lantern(k.PM, false), 4.6, FLOOR, H2.z1 - 1.0);
       k.place(P.crate(k.PM, 0.7, 0.45, 0.5, 'aldercott'), 8.8, FLOOR, H2.z1 - 1.2, 0.2);
@@ -255,6 +259,11 @@ export default class Chapter3 extends ChapterBase {
     frame.position.copy(pos);
     frame.rotation.y = yaw;
     k.root.add(frame);
+    {
+      const nx = Math.sin(yaw);
+      const nz = Math.cos(yaw);
+      k.blockAt(v(pos.x - nx * 0.21, pos.y, pos.z - nz * 0.21), v(1.7, 1.7, 0.34), yaw, false, 0.8);
+    }
     this.receptorMats.set(id, mat);
     return { id, pos: pos.clone(), radius: 0.5 };
   }
@@ -294,6 +303,18 @@ export default class Chapter3 extends ChapterBase {
     slit.position.set(x - dirX * 0.05, BEAM_Y, z);
     slit.rotation.y = dirX < 0 ? -Math.PI / 2 : Math.PI / 2;
     k.root.add(slit);
+    // The sun-slit: a framed opening through the wall with daylight pouring out of it.
+    const fx = x - dirX * 0.02;
+    k.blockAt(v(fx, BEAM_Y + 0.5, z), v(0.3, 0.3, 1.5), 0, false, 1.0);
+    k.blockAt(v(fx, BEAM_Y - 0.5, z), v(0.3, 0.3, 1.5), 0, false, 1.0);
+    for (const dz of [-0.6, 0.6]) k.blockAt(v(fx, BEAM_Y, z + dz), v(0.3, 0.7, 0.3), 0, false, 1.0);
+    const halo = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), new THREE.MeshBasicMaterial({ map: this.kit.texture('tex.mist'), color: new THREE.Color(1.6, 1.25, 0.8), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    halo.position.set(x - dirX * 0.22, BEAM_Y, z);
+    halo.rotation.y = slit.rotation.y;
+    k.root.add(halo);
+    const glow = new THREE.PointLight(new THREE.Color(1.0, 0.85, 0.6), 5, 7, 2);
+    glow.position.set(x - dirX * 0.7, BEAM_Y, z);
+    k.root.add(glow);
   }
 
   private buildHall1(): void {
@@ -404,6 +425,25 @@ export default class Chapter3 extends ChapterBase {
     k.props.add(tape);
   }
 
+  /** Old drainage still working: a spout in the wall feeding a stone gutter along each hall. */
+  private buildRunningWater(): void {
+    const k = this.kit;
+    const gutter = (x: number, z0: number, z1: number, wallSide: number) => {
+      const len = z1 - z0;
+      const zc = (z0 + z1) / 2;
+      k.darkBatch.add(k.block, v(x, FLOOR + 0.005, zc), v(0.72, 0.03, len), 0, 0.35);
+      for (const e of [-0.42, 0.42]) k.masonBatch.add(k.block, v(x + e, FLOOR + 0.03, zc), v(0.12, 0.08, len), 0, 0.75);
+      k.waterPlane(x, FLOOR + 0.05, zc, 0.72, len);
+      const spoutY = FLOOR + 1.5;
+      k.blockAt(v(x + wallSide * 0.36, spoutY + 0.08, z0 + 0.3), v(0.5, 0.16, 0.34), 0, false, 0.8);
+      // The water leaves the spout lip and drops straight into the gutter below it.
+      k.root.add(waterfallMesh(v(x + wallSide * 0.2, spoutY + 0.02, z0 + 0.3), v(x + wallSide * 0.2, FLOOR + 0.06, z0 + 0.3), 0.16, v(-wallSide, 0, 0), k.waterMat, 0.12));
+      k.particles('spray', 14, v(x, FLOOR + 0.12, z0 + 0.3), v(0.45, 0.25, 0.45), new THREE.Color(0.95, 0.97, 1), 0.07, 0.5, 71 + Math.round(x), 'tex.mist');
+    };
+    gutter(H1.x1 - 0.55, H1.z0 + 0.6, H1.z1 - 0.6, 1);
+    gutter(H2.x0 + 0.55, H2.z0 + 0.8, H2.z1 - 1.2, -1);
+  }
+
   private buildExit(): void {
     const k = this.kit;
     const { world } = this.ctx;
@@ -416,8 +456,15 @@ export default class Chapter3 extends ChapterBase {
     k.masonBatch.add(k.plate, v(0, FLOOR - 0.3, 83), v(8, 0.6, 5), 0, 0.8);
     for (let x = -3.6; x <= 3.6; x += 0.8) k.blockAt(v(x, FLOOR + 0.45, 85.3), v(0.45, 0.9, 0.5), 0, false, 0.85);
     world.addBox(v(0, FLOOR + 0.6, 85.3), v(4, 0.6, 0.3), 0, { blocksCamera: false });
-    world.addBox(v(-4, FLOOR + 1, 83), v(0.3, 1.2, 2.5), 0, { blocksCamera: false });
-    world.addBox(v(4, FLOOR + 1, 83), v(0.3, 1.2, 2.5), 0, { blocksCamera: false });
+    // Stone balustrade down both sides (the balcony's collision edge, now visible).
+    for (const sx of [-3.75, 3.75]) {
+      for (let z = 80.9; z <= 85; z += 0.8) k.blockAt(v(sx, FLOOR + 0.45, z), v(0.5, 0.9, 0.45), 0, false, 0.85);
+      world.addBox(v(sx, FLOOR + 0.6, 83), v(0.3, 0.6, 2.5), 0, { blocksCamera: false });
+    }
+    // The gorge's water: two falls off the far walls feeding the river under the great bridge.
+    k.waterfall(v(-13, 6, 199.4), v(-13, -70, 196), 11, v(0, 0, -1), -72, buildWaterfallFX);
+    k.waterfall(v(11.8, 10, 142), v(9, -70, 142), 6, v(-1, 0, 0), -72, buildWaterfallFX);
+    k.waterPlane(0, -72, 150, 34, 110);
     // Vista: the central gorge in afternoon haze, the great bridge, floodlit camp below.
     k.cliffBox(v(-40, -40, 150), v(28, 60, 50), ['+x'], { scale: 2.2, collide: false });
     k.cliffBox(v(40, -40, 150), v(28, 60, 50), ['-x'], { scale: 2.2, collide: false });
@@ -613,7 +660,7 @@ export default class Chapter3 extends ChapterBase {
   }
 
   protected ambience(): AmbienceConfig {
-    return { wind: 0.25, insects: 0, birds: 0, frogs: 0, drips: 1, water: [{ pos: v(0, -40, 150), gain: 0.25, kind: 'falls' }] };
+    return { wind: 0.25, insects: 0, birds: 0, frogs: 0, drips: 1, water: [{ pos: v(0, -40, 150), gain: 0.25, kind: 'falls' }, { pos: v(H1.x1 - 0.55, FLOOR, 24), gain: 0.16, kind: 'river' }, { pos: v(H2.x0 + 0.55, FLOOR, 56), gain: 0.16, kind: 'river' }] };
   }
 
   protected onRespawned(): void {

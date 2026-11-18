@@ -18,7 +18,25 @@ export type AnimState =
   | 'PUSH'
   | 'CINEMATIC'
   | 'SIT'
-  | 'TALK';
+  | 'TALK'
+  | 'LEAP'
+  | 'ROLL'
+  | 'LAND_HARD'
+  | 'AIR_START'
+  | 'AIR'
+  | 'SIT_ENTER'
+  | 'SIT_EXIT'
+  | 'SIT_TALK'
+  | 'KNEEL'
+  | 'PICKUP'
+  | 'FOLD_ARMS'
+  | 'SHAKE_HEAD'
+  | 'NOD'
+  | 'HIT'
+  | 'DEATH'
+  | 'CROUCH'
+  | 'RAIL'
+  | 'OPEN';
 
 export const LOCOMOTION_STATES: AnimState[] = ['IDLE', 'WALK', 'RUN', 'SPRINT'];
 
@@ -32,7 +50,7 @@ export interface AnimParams {
 export interface AnimationDriver {
   readonly state: AnimState;
   /** Crossfade to a state. `fade` in seconds. One-shot states fire onDone when finished. */
-  setState(state: AnimState, opts?: { fade?: number; restart?: boolean; onDone?: () => void }): void;
+  setState(state: AnimState, opts?: { fade?: number; restart?: boolean; onDone?: () => void; startAt?: number }): void;
   update(dt: number, params: AnimParams): void;
   /** Normalized locomotion phase (0..1) for footstep sync. */
   readonly gaitPhase: number;

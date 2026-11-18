@@ -114,6 +114,41 @@ export function installDebugHooks(game: Game): void {
     setLookAt: (on: boolean) => {
       game.interaction.lookDisabled = !on;
     },
+    /** Bright neutral light rig for animation review captures. */
+    reviewLight: (on: boolean) => {
+      const sc = game.renderer.scene;
+      const old = sc.getObjectByName('__review');
+      if (old) sc.remove(old);
+      if (on) {
+        const g = new THREE.Group();
+        g.name = '__review';
+        g.add(new THREE.AmbientLight(0xffffff, 2.2));
+        const d = new THREE.DirectionalLight(0xffffff, 2.5);
+        d.position.set(3, 8, -6);
+        g.add(d);
+        sc.add(g);
+        sc.traverse((o) => {
+          if ((o as THREE.InstancedMesh).isInstancedMesh) o.visible = false;
+        });
+      }
+    },
+    /** Live traversal pose, in the character's frame, plus hand/foot error against planted holds. */
+    rigProbe: () => {
+      const av = game.player.avatar;
+      const c = av.climb;
+      const toLocal = (o?: THREE.Object3D) => {
+        if (!o) return null;
+        const v = o.getWorldPosition(new THREE.Vector3());
+        av.root.worldToLocal(v);
+        return v.toArray().map((n) => +n.toFixed(3));
+      };
+      const limbs = [0, 1, 2, 3].map((i) => {
+        const end = c.rig.limbEnd(i);
+        const hold = c.plantedPoint(i);
+        return { planted: c.isPlanted(i), err: +end.distanceTo(hold).toFixed(3), world: end.toArray().map((n) => +n.toFixed(3)) };
+      });
+      return { state: av.driver.state, pelvis: toLocal(av.bones.hips), chest: toLocal(av.bones.chest), head: toLocal(av.bones.head), active: c.active, limbs };
+    },
     /** The foliage-interaction uniform as the shaders see it. */
     foliagePlayer: () => globalUniforms.uPlayerPos.value.toArray(),
     /** Camera spring-arm check: is anything solid between the camera pivot and the camera? */

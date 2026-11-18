@@ -22,6 +22,7 @@ const _n = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
 const _pq = new THREE.Quaternion();
+const _rw = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
 const _ab = new THREE.Vector3();
 const _bc = new THREE.Vector3();
@@ -33,8 +34,10 @@ const _to = new THREE.Vector3();
 function rotateWorld(bone: THREE.Object3D, rot: THREE.Quaternion): void {
   bone.parent!.getWorldQuaternion(_pq);
   // local' = parent^-1 * rot * parent * local
-  _q2.copy(_pq).invert().multiply(rot).multiply(_pq);
-  bone.quaternion.premultiply(_q2);
+  // (own scratch value: callers pass their shared temporaries in as `rot`, and writing the result
+  // into one of those destroyed the rotation before it was used: feet spun round on any slope)
+  _rw.copy(_pq).invert().multiply(rot).multiply(_pq);
+  bone.quaternion.premultiply(_rw);
   bone.updateMatrixWorld(true);
 }
 
@@ -47,6 +50,8 @@ function rotateWorld(bone: THREE.Object3D, rot: THREE.Quaternion): void {
 export class FootIK {
   private legs: Leg[] = [];
   private hipOffset = 0;
+  /** Extra knee bend (m): hips drop while the feet stay planted (landings). */
+  compress = 0;
   /** 0..1, faded in/out by the caller (grounded locomotion only). */
   weight = 0;
   enabled = true;
@@ -90,17 +95,18 @@ export class FootIK {
     }
     // 2. Lower the hips so the lower foot can reach (smoothed to avoid pops).
     this.hipOffset = damp(this.hipOffset, minDelta, 14, dt);
-    if (Math.abs(this.hipOffset) > 1e-4) {
+    const hipApplied = this.hipOffset - this.compress * this.weight;
+    if (Math.abs(hipApplied) > 1e-4) {
       const hips = this.hips!;
       hips.parent!.getWorldQuaternion(_pq);
       hips.parent!.getWorldScale(_b);
-      _c.set(0, this.hipOffset / Math.max(_b.y, 1e-4), 0).applyQuaternion(_pq.invert());
+      _c.set(0, hipApplied / Math.max(_b.y, 1e-4), 0).applyQuaternion(_pq.invert());
       hips.position.add(_c);
       hips.updateMatrixWorld(true);
     }
     // 3. Two-bone IK per leg toward (current ankle + remaining delta).
     this.legs.forEach((l, i) => {
-      l.offset = damp(l.offset, deltas[i] - this.hipOffset, 14, dt);
+      l.offset = damp(l.offset, deltas[i] - hipApplied, 18, dt);
       if (Math.abs(l.offset) < 1e-4) {
         this.alignFoot(l);
         return;

@@ -5,6 +5,9 @@ import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
+/** Manifest URLs are written from the site root; resolve them against where the game is hosted. */
+const publicUrl = (u: string): string => (u.startsWith('/') ? import.meta.env.BASE_URL + u.slice(1) : u);
+
 export type AssetType = 'gltf' | 'texture' | 'ktx2' | 'json' | 'procedural';
 
 export interface AssetEntry {
@@ -51,8 +54,8 @@ export class AssetManager {
 
   constructor(renderer: THREE.WebGLRenderer) {
     const draco = new DRACOLoader();
-    draco.setDecoderPath('/decoders/draco/');
-    this.ktx2 = new KTX2Loader().setTranscoderPath('/decoders/basis/').detectSupport(renderer);
+    draco.setDecoderPath(`${import.meta.env.BASE_URL}decoders/draco/`);
+    this.ktx2 = new KTX2Loader().setTranscoderPath(`${import.meta.env.BASE_URL}decoders/basis/`).detectSupport(renderer);
     this.gltfLoader = new GLTFLoader();
     this.gltfLoader.setDRACOLoader(draco);
     this.gltfLoader.setKTX2Loader(this.ktx2);
@@ -179,19 +182,19 @@ export class AssetManager {
   private async load(e: AssetEntry): Promise<unknown> {
     switch (e.type) {
       case 'gltf':
-        return this.gltfLoader.loadAsync(e.url!);
+        return this.gltfLoader.loadAsync(publicUrl(e.url!));
       case 'texture': {
-        const t = await this.texLoader.loadAsync(e.url!);
+        const t = await this.texLoader.loadAsync(publicUrl(e.url!));
         this.configureTexture(t, e);
         return t;
       }
       case 'ktx2': {
-        const t = await this.ktx2.loadAsync(e.url!);
+        const t = await this.ktx2.loadAsync(publicUrl(e.url!));
         this.configureTexture(t, e);
         return t;
       }
       case 'json': {
-        const r = await fetch(e.url!);
+        const r = await fetch(publicUrl(e.url!));
         if (!r.ok) throw new Error(`${e.url}: ${r.status}`);
         return r.json();
       }

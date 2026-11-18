@@ -5,6 +5,8 @@ export const CH2 = {
   intro: [
     { speaker: 'TOBY', text: 'Ines. Ines. Tell me you slept somewhere with walls.', radio: true },
     { speaker: 'INES', text: 'Gate arch. Very dry. Excellent view.', radio: true },
+    { speaker: 'INES', text: 'The channel was busy before dawn. Who were you talking to?', radio: true },
+    { speaker: 'TOBY', text: 'Talking? Nobody. Static. Mountains do that.', radio: true },
     { speaker: 'TOBY', text: "I've been staring at a cliff all night. The cliff has been staring back.", radio: true },
     { speaker: 'INES', text: "I'll fix a rope off the overlook. You follow it when you're ready.", radio: true },
     { speaker: 'TOBY', text: "When I'm ready. Yes. Pencil me in for my next life.", radio: true },

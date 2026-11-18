@@ -10,7 +10,7 @@ import { TogglePuzzle } from '../../puzzles/TogglePuzzle';
 import { Collapse, type CollapsePiece } from '../../world/Collapse';
 import type { BurstPool } from '../../world/Particles';
 import { buildWaterfallFX } from '../../world/WaterfallFX';
-import { riverMesh, waterfallMesh } from '../../world/Water';
+import { flowPlaneGeometry, riverMesh, waterfallMesh } from '../../world/Water';
 import { fbm2 } from '../../systems/noise';
 import * as P from '../../world/Props';
 import { mergeStatic } from '../../world/StaticMerge';
@@ -90,6 +90,11 @@ export default class Chapter2 extends ChapterBase {
   private basinWater!: THREE.Mesh;
   private weight!: THREE.Object3D;
   private weightY0 = 0;
+  private weightSling!: THREE.Mesh;
+  private ropeLine!: THREE.Mesh;
+  private ropeLen = 1;
+  private ropePay = 1;
+  private gapFall!: THREE.Object3D;
   private span!: Collapse;
   private bursts!: BurstPool;
   private endStarted = false;
@@ -105,7 +110,7 @@ export default class Chapter2 extends ChapterBase {
     k.atmosphere({
       sunDir: this.sunDir,
       sunColor: new THREE.Color(1.0, 0.76, 0.58),
-      sunIntensity: 4.2,
+      sunIntensity: 5.2,
       zenith: new THREE.Color(0.17, 0.25, 0.4),
       horizon: new THREE.Color(0.74, 0.62, 0.62),
       sunHorizon: new THREE.Color(1.35, 0.72, 0.46),
@@ -113,9 +118,9 @@ export default class Chapter2 extends ChapterBase {
       ground: new THREE.Color(0.2, 0.22, 0.24),
       cloudCover: 0.35,
       skySunIntensity: 20,
-      envIntensity: 0.75,
-      fogColor: new THREE.Color(0.56, 0.56, 0.6),
-      fogDensity: 0.0052,
+      envIntensity: 0.62,
+      fogColor: new THREE.Color(0.35, 0.39, 0.46),
+      fogDensity: 0.0024,
       fogSunColor: new THREE.Color(0.95, 0.62, 0.44),
       fogHeightBase: -25,
       fogHeightFalloff: 0.035,
@@ -125,7 +130,7 @@ export default class Chapter2 extends ChapterBase {
       wetness: 0.3,
       shadowRange: this.shadowRange,
     });
-    world.bounds = { minX: -44, maxX: 14, minZ: -6, maxZ: 147 };
+    world.bounds = { minX: -66, maxX: 14, minZ: -6, maxZ: 147 };
     this.ctx.player.killY = -42;
 
     await step(0.12, 'Carving the gorge');
@@ -153,11 +158,15 @@ export default class Chapter2 extends ChapterBase {
     k.cliffBox(v(11, (Y0 + 8 - 60) / 2, -0.5), v(3, (Y0 + 8 + 60) / 2, 5.5), ['+z'], { hue: ribbon, minY: Y1 - 4 });
 
     await step(0.22, 'Laying the terraces');
+    // Everything stands on rock that runs down into the mist: big, cheap slabs below the detailed band.
+    const roots = (c: THREE.Vector3, h: THREE.Vector3, faces: ('+x' | '-x' | '+z' | '-z')[], fromY: number) =>
+      k.cliffBox(v(c.x, (fromY - 74) / 2, c.z), v(h.x, (fromY + 74) / 2, h.z), faces, { hue: ribbon, scale: 3, tint: 0.8, collide: false });
     // ---------------------------------------------------------------- terraces
     const terrace = (x0: number, x1: number, z0: number, z1: number, top: number, faces: ('+x' | '-x' | '+z' | '-z')[], bottom = -60) => {
       const c = v((x0 + x1) / 2, (top + bottom) / 2, (z0 + z1) / 2);
       const h = v((x1 - x0) / 2, (top - bottom) / 2, (z1 - z0) / 2);
       k.cliffBox(c, h, faces, { hue: ribbon, skip: (_x, y) => y > top - 4.4, minY: top - 18, scale: 1.3 });
+      roots(c, h, faces, top - 17);
       // Built Ysharu retaining wall over the raw rock: the top 4 m of every terrace face.
       const warm = new THREE.Color(1.04, 0.96, 0.86);
       for (const f of faces) {
@@ -175,7 +184,7 @@ export default class Chapter2 extends ChapterBase {
           if (rnd() < 0.55) k.masonBatch.add(k.block, v(x, top - 0.08, z), v(1.2 + rnd() * 0.5, 0.2, 1.0 + rnd() * 0.5), rnd() * 0.25, 0.75 + rnd() * 0.2);
       k.masonBatch.add(k.plate, v(c.x, top - 0.35, c.z), v(x1 - x0, 0.7, z1 - z0), 0, 0.85);
     };
-    // Invisible fall guards (low walls the camera ignores).
+    // A wall only where a wall can be seen: the overlook's parapet. Every other edge is a real edge.
     const guard = (x0: number, x1: number, z0: number, z1: number, y: number) =>
       world.addBox(v((x0 + x1) / 2, y + 0.6, (z0 + z1) / 2), v(Math.max(0.1, (x1 - x0) / 2), 0.6, Math.max(0.1, (z1 - z0) / 2)), 0, { blocksCamera: false });
     // Parapet (visible) along an edge
@@ -189,7 +198,8 @@ export default class Chapter2 extends ChapterBase {
     // T0 overlook
     terrace(-6, 8, -6, 5, Y0, ['+z']);
     parapet(v(-6, Y0, 4.8), v(8, Y0, 4.8), 0.9, [[7.4, 10.6]]);
-    guard(-6, 8, 4.6, 5.0, Y0);
+    guard(-6, 1.4, 4.6, 5.0, Y0);
+    guard(4.6, 8, 4.6, 5.0, Y0);
     // Overlook side rock
     k.cliffBox(v(-10, Y0 + 6, -0.5), v(4, 12, 6), ['+x', '+z'], { hue: ribbon, scale: 1.3 });
     // The blown stair: scorched rubble fan below the overlook.
@@ -207,7 +217,6 @@ export default class Chapter2 extends ChapterBase {
     }
     // Anchor column for the rope
     k.blockAt(v(ANCHOR.x, Y0 + 0.6, ANCHOR.z - 0.4), v(0.55, 1.2, 0.55), 0, true, 1.0);
-    guard(1.6, 3.4, 5.0, 5.4, Y0);
     this.rope = new THREE.Group();
     {
       const r = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1, 5), k.PM.rope);
@@ -216,6 +225,11 @@ export default class Chapter2 extends ChapterBase {
       r.position.set(RAPPEL_TOP.x, (Y0 + 1.1 + Y1 + 0.1) / 2, RAPPEL_TOP.z + 0.25);
       r.rotation.x = 0.07;
       this.rope.add(r);
+      this.ropeLine = r;
+      this.ropeLen = Y0 + 0.05 - (Y1 + 0.1);
+      // From the knot on the column, over the lip, to the top of the hanging line.
+      const lead = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([v(ANCHOR.x, Y0 + 1.0, ANCHOR.z - 0.1), v(ANCHOR.x, Y0 + 0.5, ANCHOR.z + 0.5), v(RAPPEL_TOP.x, Y0 + 0.12, RAPPEL_TOP.z - 0.1), v(RAPPEL_TOP.x, Y0 + 0.02, RAPPEL_TOP.z + 0.2)]), 16, 0.018, 5), k.PM.rope);
+      this.rope.add(lead);
       const knot = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.035, 6, 14), k.PM.rope);
       knot.position.set(ANCHOR.x, Y0 + 1.0, ANCHOR.z - 0.4);
       knot.rotation.x = Math.PI / 2;
@@ -228,14 +242,16 @@ export default class Chapter2 extends ChapterBase {
 
     // T1 kitchens (and T1b slumped wall)
     terrace(-8, 14, 5, 22, Y1, ['-x']);
-    guard(-8.2, -7.8, 5, 22, Y1);
     k.cliffBox(v(3, (Y1B - 60) / 2, 26), v(11, (Y1B + 60) / 2, 4), ['-x', '-z'], {
       minY: Y1 - 14,
       hue: ribbon,
       skip: (x, y, z) => (z < 23 && x > -0.4 && x < 3.4) || y > Y1B - 1,
     });
+    roots(v(3, 0, 26), v(11, 0, 4), ['-x'], Y1 - 13);
     k.masonBatch.add(k.plate, v(3, Y1B - 0.3, 26), v(22, 0.6, 8), 0, 0.9);
-    guard(-8.2, -7.8, 22, 30, Y1B);
+    // The slumped wall is built up to its top: the paving no longer hangs out over the rock face.
+    k.coursedWall(-8, 22, 14, 22, Y1, Y1B - 0.02, { thick: 1.0, collide: false, cornice: false, hue: new THREE.Color(1.04, 0.96, 0.86), tint: 0.8, gaps: [[-0.4, 3.4]], doorH: 5 });
+    k.coursedWall(-8, 22, -8, 30, Y1B - 4.2, Y1B - 0.02, { thick: 1.0, collide: false, cornice: false, hue: new THREE.Color(1.04, 0.96, 0.86), tint: 0.8 });
     k.climbFace(CLIMB_WALL.origin, CLIMB_WALL.right, CLIMB_WALL.normal, CLIMB_WALL.width, CLIMB_WALL.height);
     // Hearths & grinding stones
     for (const [hx, hz] of [[-3, 11], [-0.5, 14.5], [-4.6, 16]] as const) {
@@ -276,8 +292,6 @@ export default class Chapter2 extends ChapterBase {
 
     // T2 terrace house + bridge head
     terrace(-8, 14, 30, 46, Y1, ['-x']);
-    guard(-8.2, -7.8, 30, 40.9, Y1);
-    guard(-8.2, -7.8, 43.1, 46, Y1);
     k.cliffBox(v(3, Y1 + 12, 49), v(11, 22, 3), ['-z', '-x'], { hue: ribbon, scale: 1.3 });
     {
       // The house: walls of masonry with a doorway on the south side, roof slab.
@@ -339,7 +353,6 @@ export default class Chapter2 extends ChapterBase {
         world.addBox(v(x, y - 0.15, z), v(0.32, 0.15, 0.62), 0, { surface: 'wood', blocksCamera: false });
       }
       for (const side of [-0.7, 0.7]) {
-        world.addBox(v((x0 + x1) / 2, Y1 + 0.5, z + side), v(Math.abs(x1 - x0) / 2, 0.6, 0.06), 0, { blocksCamera: false });
         const pts: THREE.Vector3[] = [];
         for (let i = 0; i <= 20; i++) {
           const t = i / 20;
@@ -374,10 +387,6 @@ export default class Chapter2 extends ChapterBase {
 
     // T3 east terrace + plate 43 shrine
     terrace(-37, -26, 30, 50, Y1, ['+x', '-z']);
-    guard(-26.2, -25.8, 30, 40.9, Y1);
-    guard(-26.2, -25.8, 43.1, 50, Y1);
-    guard(-28.3, -26, 49.8, 50.2, Y1);
-    guard(-37, -26, 29.8, 30.2, Y1);
     k.cliffBox(v(-44, Y1 + 15, 40), v(7, 25, 12), ['+x'], { hue: ribbon, minY: Y1 - 6, scale: 1.3 });
     {
       k.blockAt(v(-36, Y1 + 1.4, 36), v(1.2, 2.8, 2.6), 0, true, 0.9);
@@ -392,6 +401,9 @@ export default class Chapter2 extends ChapterBase {
 
     // Spur + aqueduct ledge
     k.cliffBox(v(-35, (Y0 + 6 - 60) / 2, 56), v(6, (Y0 + 6 + 60) / 2, 6), ['+x'], { hue: ribbon, skip: (_x, y) => Math.abs(y - (Y1 + 0.7)) < 1.2, minY: Y1 - 16, scale: 1.3 });
+    roots(v(-35, 0, 56), v(6, 0, 6), ['+x'], Y1 - 15);
+    // The rock she sidles along: a face right behind the ledge, so her hands are on stone.
+    k.cliffBatch.add(k.plate, v(-29.22, Y1 + 0.9, 56), v(0.44, 3.4, 12), 0, 0.82, ribbon);
     world.addBox(v(-28.775, (Y1 - 60) / 2, 56), v(0.225, (Y1 + 60) / 2, 6), 0, { surface: 'stone' });
     k.masonBatch.add(k.stepSlab, v(-28.775, Y1 - 0.15, 56), v(0.45, 0.3, 12), 0, 1.2);
     // Aqueduct channel on top of the spur (water running north)
@@ -401,18 +413,16 @@ export default class Chapter2 extends ChapterBase {
         k.blockAt(v(-31.4, Y0 + 6.4, z), v(0.4, 0.8, 1.45), 0, false, 0.9);
       }
       k.waterPlane(-30.5, Y0 + 6.6, 56, 1.4, 12);
-      const fall = waterfallMesh(v(-30.5, Y0 + 6.6, 62), v(-30.5, Y1 + 1.2, 64.2), 1.2, v(0, 0, 1), k.fallMat);
-      k.root.add(fall);
+      // A stone spout carries the channel clear of the rock; the water arcs out and lands in the cistern.
+      k.blockAt(v(-30.5, Y0 + 6.2, 62.6), v(2.2, 0.45, 1.6), 0, false, 0.9);
+      for (const sx of [-31.4, -29.6]) k.blockAt(v(sx, Y0 + 6.6, 62.6), v(0.4, 0.5, 1.6), 0, false, 0.9);
+      k.waterPlane(-30.5, Y0 + 6.6, 62.7, 1.4, 1.5);
+      k.waterfall(v(-30.5, Y0 + 6.6, 63.3), v(-30.5, Y1 + 0.9, 63.3), 1.3, v(0, 0, 1), Y1 + 0.86, buildWaterfallFX, { throwDist: 6.6, rippleRadius: 2.2 });
     }
 
     await step(0.48, 'Filling the cistern');
     // T4 cistern terrace
     terrace(-41, -20, 62, 80, Y1, ['+x', '-z']);
-    guard(-20.2, -19.8, 62, 80, Y1);
-    guard(-41.2, -40.8, 62, 80, Y1);
-    guard(-28.3, -20, 61.8, 62.2, Y1);
-    guard(-41, -34.9, 79.8, 80.2, Y1);
-    guard(-27.1, -20, 79.8, 80.2, Y1);
     k.cliffBox(v(-49, Y1 + 18, 72), v(8, 28, 10), ['+x'], { hue: ribbon, minY: Y1 - 6, scale: 1.3 });
     this.buildCistern();
 
@@ -424,16 +434,11 @@ export default class Chapter2 extends ChapterBase {
         skip: (_x, y) => y > Y1,
         minY: Y5 - 8,
       });
+      roots(v(sx + (sx < -31 ? -0.6 : 0.6), 0, (STAIR_TOP_Z + STAIR_BOTTOM_Z) / 2), v(1.2, 0, (STAIR_BOTTOM_Z - STAIR_TOP_Z) / 2 + 0.4), [sx < -31 ? '+x' : '-x'], Y5 - 7);
     }
 
     // T5 landing + door
     terrace(-36, -25, STAIR_BOTTOM_Z, SPAN_Z0, Y5, ['+x', '-x']);
-    guard(-36.2, -35.8, STAIR_BOTTOM_Z, SPAN_Z0, Y5);
-    guard(-25.2, -24.8, STAIR_BOTTOM_Z, SPAN_Z0, Y5);
-    guard(-36, -31.4, SPAN_Z0 - 0.2, SPAN_Z0 + 0.2, Y5);
-    guard(-28.6, -25, SPAN_Z0 - 0.2, SPAN_Z0 + 0.2, Y5);
-    guard(-36, -34, STAIR_BOTTOM_Z - 0.2, STAIR_BOTTOM_Z + 0.2, Y5);
-    guard(-28, -25, STAIR_BOTTOM_Z - 0.2, STAIR_BOTTOM_Z + 0.2, Y5);
     k.blockAt(v(-33.4, Y5 + 2.2, STAIR_BOTTOM_Z + 0.3), v(1.2, 4.4, 1.0), 0, true, 1.0);
     k.blockAt(v(-28.6, Y5 + 2.2, STAIR_BOTTOM_Z + 0.3), v(1.2, 4.4, 1.0), 0, true, 1.0);
     k.blockAt(v(-31, Y5 + 4.7, STAIR_BOTTOM_Z + 0.3), v(6, 0.9, 1.3), 0, false, 1.05);
@@ -446,7 +451,7 @@ export default class Chapter2 extends ChapterBase {
       this.door = door;
       this.doorCollider = world.addBox(v(-31, Y5 + 2, STAIR_BOTTOM_Z + 0.3), v(1.9, 2.2, 0.4), 0, { dynamic: true });
       // Chain from the counterweight down the stair wall to the door
-      const pts = [v(-23, Y1 + 3.2, 70), v(-26.5, Y1 + 2.6, 79.5), v(-28.7, Y5 + 4.2, STAIR_BOTTOM_Z), v(-30, Y5 + 4.1, STAIR_BOTTOM_Z + 0.6)];
+      const pts = [v(-24.6, Y1 + 4.5, 74.1), v(-26.2, Y1 + 3.4, 77), v(-27.6, Y1 + 2.4, 79.8), v(-28.5, Y5 + 6.5, 87), v(-28.7, Y5 + 4.3, STAIR_BOTTOM_Z - 0.2), v(-29.6, Y5 + 4.15, STAIR_BOTTOM_Z + 0.4)];
       const chain = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, 0.04, 5), k.PM.darkMetal);
       k.props.add(chain);
     }
@@ -455,10 +460,6 @@ export default class Chapter2 extends ChapterBase {
     this.buildSpan();
     // T6 far abutment + the sun-shaft mouth
     terrace(-38, -22, GAP_END, 146, Y5, ['+x', '-x']);
-    guard(-38.2, -37.8, GAP_END, 146, Y5);
-    guard(-22.2, -21.8, GAP_END, 146, Y5);
-    guard(-38, -31.4, GAP_END - 0.2, GAP_END + 0.2, Y5);
-    guard(-28.6, -22, GAP_END - 0.2, GAP_END + 0.2, Y5);
     {
       for (const sx of [-34.2, -25.8]) k.blockAt(v(sx, Y5 + 3.2, 146.2), v(1.6, 6.4, 1.6), 0, true, 1.0);
       k.blockAt(v(-30, Y5 + 6.9, 146.2), v(10, 1.2, 2), 0, false, 1.05);
@@ -481,7 +482,7 @@ export default class Chapter2 extends ChapterBase {
     await step(0.86, 'Mist in the gorge');
     const sd = this.sunDir.clone().negate();
     for (const [x, y, z] of [[-14, 6, 20], [-18, 4, 46], [-20, 2, 78], [-22, -4, 110]] as const) k.shaft(v(x, y, z).addScaledVector(sd, -30), sd, 46, 2.2, 5.5, new THREE.Color(1.0, 0.74, 0.52), 0.035);
-    k.particles('mist', 70, v(-30, -55, 70), v(60, 30, 160), new THREE.Color(0.85, 0.8, 0.78), 110, 0.3, 4, 'tex.mist');
+    k.particles('mist', 70, v(-30, -55, 70), v(60, 30, 160), new THREE.Color(0.4, 0.43, 0.48), 110, 0.2, 4, 'tex.mist');
     k.particles('mist', 30, v(-10, -18, 40), v(50, 10, 90), new THREE.Color(0.9, 0.85, 0.8), 40, 0.16, 5, 'tex.mist');
     k.particles('dust', 300, v(-12, Y1, 50), v(50, 14, 110), new THREE.Color(1, 0.86, 0.66), 0.1, 0.5, 6);
     k.particles('pollen', 160, v(0, Y1, 20), v(30, 8, 40), new THREE.Color(1, 0.92, 0.75), 0.09, 0.5, 7);
@@ -569,6 +570,9 @@ export default class Chapter2 extends ChapterBase {
       k.root.add(w);
       this.weight = w;
       this.weightY0 = w.position.y;
+      const sling = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1, 6), k.PM.rope);
+      k.root.add(sling);
+      this.weightSling = sling;
     }
     // Stair cascade (when gate A is open) + torrent blocker at the stair head
     // Stair cascade: a sheet of water running down the steps, white where it breaks, spray below.
@@ -614,7 +618,7 @@ export default class Chapter2 extends ChapterBase {
       g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 3).fill(0.9), 3));
       return k.track(g);
     })();
-    const build = (z0: number, z1: number, collapses: boolean) => {
+    const build = (z0: number, z1: number, collapses: boolean, wet = true) => {
       const g = new THREE.Group();
       const parts = new THREE.Group();
       const zc = (z0 + z1) / 2;
@@ -640,9 +644,10 @@ export default class Chapter2 extends ChapterBase {
       }
       for (const sx of [-1.2, 1.2])
         for (let zz = -len / 2 + 0.4; zz < len / 2; zz += 0.8) add(k.ashlar, v(sx, 0.24, zz), v(0.32, 0.48, 0.78));
-      const water = new THREE.Mesh(new THREE.PlaneGeometry(2.05, len - 0.05).rotateX(-Math.PI / 2), k.waterMat);
+      const water = new THREE.Mesh(flowPlaneGeometry(2.05, len - 0.05), k.waterMat);
       water.position.y = 0.06;
       water.renderOrder = 2;
+      water.visible = wet;
       g.add(mergeStatic(parts, 'aqueduct-bay'), water);
       k.root.add(g);
       const cols = [
@@ -659,9 +664,12 @@ export default class Chapter2 extends ChapterBase {
       pieces.push({ object: g, colliders: cols, delay: i < 2 ? 0.7 : 0.7 + (i - 1) * 0.72, shudder: 0.7, spin: 0.4 + (i % 3) * 0.2 });
     }
     // The far end already broke long ago: a gap (jump) then the last arch on the abutment.
-    build(GAP_END, GAP_END + 5.5, false);
-    // The channel spills off the broken end into the gorge.
-    k.root.add(waterfallMesh(v(SPAN_X, Y5 + 0.05, GAP_END), v(SPAN_X, Y5 - 30, GAP_END - 1.2), 1.9, v(0, 0, -1), k.fallMat));
+    // (that last arch has been dry since the span broke: its channel is empty)
+    build(GAP_END, GAP_END + 5.5, false, false);
+    // The channel pours off the broken end of the span into the gorge (and goes with it when it falls).
+    const endZ = SPAN_Z0 + SPAN_PIECES * SPAN_PIECE;
+    this.gapFall = waterfallMesh(v(SPAN_X, Y5 + 0.06, endZ - 0.1), v(SPAN_X, Y5 - 34, endZ - 0.1), 1.9, v(0, 0, 1), k.fallMat, 1.7);
+    k.root.add(this.gapFall);
     this.span = new Collapse(pieces);
     this.span.setProxy(k.mergedCopy(pieces.map((p) => p.object), 'span-intact'));
     this.span.onShudder = (i) => this.ctx.audio.sfx.stoneGrind(0.9, v(SPAN_X, Y5, SPAN_Z0 + i * SPAN_PIECE + 2), 0.5);
@@ -839,14 +847,21 @@ export default class Chapter2 extends ChapterBase {
     return v(c.x - 3.8, c.y + 0.9, c.z - 0.6);
   }
 
+  // (hero frames hold the same pose as the real rappel)
   private useRope(): void {
     const { interaction, player, dialogue } = this.ctx;
     const it = interaction.get('rope')!;
     if (!this.ropeFixed) {
-      player.playAction('INTERACT', ANCHOR, 1.6);
-      this.after(1.0, () => {
-        this.ropeFixed = true;
+      player.playAction('INTERACT', ANCHOR, 2.4);
+      // She ties it round the column first; then the coil goes over the edge and runs out.
+      this.after(0.7, () => {
+        this.ropePay = 0;
+        this.applyRope();
         this.rope.visible = true;
+        this.ctx.audio.sfx.climbGrab('ledge');
+      });
+      this.after(2.0, () => {
+        this.ropeFixed = true;
         it.prompt = 'Rappel down';
         this.ctx.audio.sfx.climbGrab('ledge');
         dialogue.sayOnce('ch2:ropeFixed', CH2.ropeFixed);
@@ -858,7 +873,9 @@ export default class Chapter2 extends ChapterBase {
     const top = RAPPEL_TOP.clone();
     const mid = v(RAPPEL_TOP.x, Y0 - 4.5, RAPPEL_TOP.z + 0.55);
     this.ctx.audio.sfx.climbGrab('climb');
-    this.scriptedMove([player.position.clone(), top, mid, RAPPEL_BOTTOM.clone()], 4.2, 'CLIMB', Math.PI, () => {
+    // She lowers herself backwards, feet walking down the wall, hands on the rope.
+    player.scriptRig = { kind: 'rappel', normal: v(0, 0, 1), wall: v(RAPPEL_TOP.x, Y0, RAPPEL_TOP.z - 0.25), topY: Y0 };
+    this.scriptedMove([player.position.clone(), top, mid, RAPPEL_BOTTOM.clone()], 5.4, 'CLIMB', Math.PI, () => {
       it.enabled = true;
       this.ctx.audio.sfx.land(1.2);
       this.checkpoint('ch2_terraces');
@@ -895,6 +912,8 @@ export default class Chapter2 extends ChapterBase {
   protected applyWorld(checkpoint: string): void {
     this.endStarted = false;
     this.rope.visible = this.ropeFixed;
+    this.ropePay = 1;
+    this.applyRope();
     const rope = this.ctx.interaction.get('rope');
     if (rope) {
       rope.prompt = this.ropeFixed ? 'Rappel down' : 'Fix the rope';
@@ -911,11 +930,23 @@ export default class Chapter2 extends ChapterBase {
     this.ctx.player.speedCap = Infinity;
   }
 
+  /** Hanging line length for how much rope has run out (falling: slow, then fast). */
+  private applyRope(): void {
+    const k = Math.max(0.02, this.ropePay * this.ropePay);
+    this.ropeLine.scale.y = this.ropeLen * k;
+    this.ropeLine.position.y = Y0 + 0.05 - (this.ropeLen * k) / 2;
+  }
+
   private applyDoor(): void {
     const e = this.doorK * this.doorK * (3 - 2 * this.doorK);
     this.door.position.y = Y5 + 2 + e * 4.3;
     this.doorCollider.enabled = this.doorK < 0.7;
     this.weight.position.y = this.weightY0 - e * 2.3;
+    // (the sling runs from the gantry beam down to the top of the stone, whatever its height)
+    const beamY = Y1 + 4.3;
+    const stoneTop = this.weight.position.y + 0.55;
+    this.weightSling.scale.y = Math.max(0.05, beamY - stoneTop);
+    this.weightSling.position.set(-23, (beamY + stoneTop) / 2, 74);
     this.basinWater.position.y = Y1 + 0.2 + this.fill * 0.75;
   }
 
@@ -947,6 +978,12 @@ export default class Chapter2 extends ChapterBase {
   protected tick(dt: number): void {
     this.sluice.update(dt);
     this.span.update(dt);
+    this.gapFall.visible = !this.span.started && !this.spanDone && this.cpIndex() < 5;
+    // The rope pays out from the anchor after she ties it off.
+    if (this.ropePay < 1) {
+      this.ropePay = Math.min(1, this.ropePay + dt / 1.25);
+      this.applyRope();
+    }
     this.bursts.update(dt);
     // Counterweight basin fills only when all of the flow goes into it.
     const s = this.sluice.states;
@@ -955,6 +992,9 @@ export default class Chapter2 extends ChapterBase {
     if (this.sluice.solved && this.doorK < 1 && this.played('doorOpen')) this.doorK = Math.min(1, this.doorK + dt / 3.2);
     this.applyDoor();
     // Lethal: still on a piece when it fell → the fall kills; nothing extra needed.
+    // The overlook's stair is gone: the only way down alive is the rope.
+    const pl = this.ctx.player;
+    if (this.cpIndex() === 0 && pl.grounded && pl.position.y < Y0 - 3 && pl.position.z > 5 && pl.position.z < 12 && pl.mode.kind === 'ground') pl.kill('fell');
   }
 
   protected triggers(): void {
@@ -1151,11 +1191,14 @@ export default class Chapter2 extends ChapterBase {
       if (anim && anim !== 'IDLE') {
         p.setScripted(true);
         p.avatar.driver.setState(anim, { fade: 0.01 });
+        const wallN = v(-Math.sin(yaw), 0, -Math.cos(yaw));
+        if (anim === 'CLIMB') p.scriptRig = { kind: 'climb', normal: wallN };
+        else if (anim === 'LEDGE_IDLE') p.scriptRig = { kind: 'sidle', normal: wallN };
       }
     };
     return [
       { name: 'dawn-overlook', cp: 'ch2_start', cam: [-14, 5, 22], look: [2, -1, -1], prep: () => stand(1.5, Y0, 3.6, Math.PI * 0.9) },
-      { name: 'rappel', cp: 'ch2_start', cam: [7.5, -5.5, 11.5], look: [2.5, -4.5, 5.6], prep: () => { this.ropeFixed = true; this.rope.visible = true; stand(2.5, -4.6, 5.8, Math.PI, 'CLIMB'); } },
+      { name: 'rappel', cp: 'ch2_start', cam: [7.5, -5.5, 11.5], look: [2.5, -4.5, 5.6], prep: () => { this.ropeFixed = true; this.rope.visible = true; stand(2.5, -4.6, 6.0, Math.PI, 'CLIMB'); p.scriptRig = { kind: 'rappel', normal: v(0, 0, 1), wall: v(RAPPEL_TOP.x, Y0, RAPPEL_TOP.z - 0.25), topY: Y0 }; } },
       { name: 'kitchens', cp: 'ch2_terraces', cam: [-6.4, -7.9, 6.2], look: [3, -9.6, 18], prep: () => stand(-1.5, Y1, 13.5, 2.4) },
       { name: 'wall-climb', cp: 'ch2_terraces', cam: [5.2, -7.6, 16.2], look: [1.5, -7.6, 22], prep: () => stand(1.5, -8.2, 21.6, 0, 'CLIMB') },
       { name: 'terrace-house', cp: 'ch2_bridge', cam: [2.2, -8.2, 28.6], look: [8, -8.6, 36], prep: () => stand(6.8, Y1, 32.4, 2.6) },

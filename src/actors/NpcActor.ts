@@ -25,6 +25,17 @@ export class NpcActor {
   /** Hide beyond this camera distance (LOW preset budget: characters are many draw calls). */
   static cullDistance = Infinity;
   static camera: THREE.Vector3 | null = null;
+  /** Scratch point the owner can write `headTarget` into. */
+  readonly lookPoint = new THREE.Vector3();
+  /** Where the head looks (independent of body facing). */
+  headTarget: THREE.Vector3 | null = null;
+  /** Set while this character's line is being spoken: small head movement, talk gesture. */
+  speaking = false;
+  /** Optional per-frame IK pose (e.g. hanging on a rope). */
+  rig: ((dt: number) => void) | null = null;
+  /** How this character stands when nothing else is asked of them (Corwin folds his arms). */
+  idleStyle: AnimState = 'IDLE';
+  private talking = false;
   /** When false the NPC keeps its authored height (sitting, hanging on ropes, cinematics). */
   groundSnap = true;
   visible = true;
@@ -61,7 +72,24 @@ export class NpcActor {
 
   setPose(state: AnimState, fade = 0.35): void {
     this.pose = state;
-    if (!this.moving) this.avatar.driver.setState(state, { fade });
+    if (!this.moving) this.avatar.driver.setState(this.restState(), { fade });
+  }
+
+  /** The state to hold while not walking: the pose, its talking version while speaking. */
+  private restState(): AnimState {
+    if (this.talking && !this.rig) {
+      if (this.pose === 'SIT') return 'SIT_TALK';
+      if (this.pose === 'IDLE') return 'TALK';
+    }
+    return this.pose === 'IDLE' ? this.idleStyle : this.pose;
+  }
+
+  /** The dialogue system marks whoever is speaking: they gesture and move their head. */
+  setSpeaking(on: boolean): void {
+    this.speaking = on;
+    if (on === this.talking) return;
+    this.talking = on;
+    if (!this.moving) this.avatar.driver.setState(this.restState(), { fade: 0.45 });
   }
 
   /** Walk (or run) through `points`; `onArrive` fires at the last one. */
@@ -169,7 +197,7 @@ export class NpcActor {
     this.followTarget = null;
     this.onArrive = null;
     this.targetSpeed = 0;
-    this.avatar.driver.setState(this.pose, { fade: 0.3 });
+    this.avatar.driver.setState(this.restState(), { fade: 0.3 });
   }
 
   update(dt: number): void {
@@ -185,7 +213,7 @@ export class NpcActor {
         if (this.avatar.driver.state !== 'WALK' && this.avatar.driver.state !== 'RUN') this.avatar.driver.setState('WALK', { fade: 0.25 });
       } else if (this.path.length && d < this.followDist + 0.1) {
         this.path = [];
-        this.avatar.driver.setState(this.pose, { fade: 0.3 });
+        this.avatar.driver.setState(this.restState(), { fade: 0.3 });
       }
     }
     if (this.path.length) {
@@ -200,7 +228,7 @@ export class NpcActor {
           this.targetSpeed = 0;
           this.speed = 0;
           if (!this.groundSnap) this.position.y = goal.y;
-          this.avatar.driver.setState(this.pose, { fade: 0.3 });
+          this.avatar.driver.setState(this.restState(), { fade: 0.3 });
           const cb = this.onArrive;
           this.onArrive = null;
           cb?.();
@@ -221,7 +249,15 @@ export class NpcActor {
     }
     this.sync();
     this.avatar.driver.update(dt, { speed: this.path.length ? this.speed : 0, rate: 1 });
-    this.avatar.layers.update(dt, this.avatar.root, 0, this.speed, true);
+    // Natural lean into walking, and a head that actually follows who she or he is talking to.
+    this.avatar.layers.bodyPitch = (this.path.length ? this.speed : 0) * 0.012;
+    if (this.headTarget) {
+      this.avatar.layers.lookTarget = this.headTarget;
+      this.avatar.layers.lookWeight = damp(this.avatar.layers.lookWeight, 0.8, 4, dt);
+    } else this.avatar.layers.lookWeight = damp(this.avatar.layers.lookWeight, 0, 4, dt);
+    this.avatar.layers.speech = this.speaking ? 1 : 0;
+    this.avatar.layers.update(dt, this.avatar.root, true);
+    this.rig?.(dt);
   }
 
   private ground(x: number, z: number, maxY: number): number {

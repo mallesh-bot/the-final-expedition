@@ -10,6 +10,7 @@ import { makeClimb, makeLedge, type TraversalSet } from '../../traversal/Travers
 import { Collapse, type CollapsePiece } from '../../world/Collapse';
 import { Rockfall, type RockDrop } from '../../world/Rockfall';
 import * as P from '../../world/Props';
+import { waterfallMesh } from '../../world/Water';
 import { mergeStatic } from '../../world/StaticMerge';
 import * as M from '../../world/ModernProps';
 import { fbm2 } from '../../systems/noise';
@@ -123,8 +124,8 @@ export default class Chapter4 extends ChapterBase {
       cloudCover: 0.45,
       skySunIntensity: 22,
       envIntensity: 0.7,
-      fogColor: new THREE.Color(0.6, 0.64, 0.66),
-      fogDensity: 0.0075,
+      fogColor: new THREE.Color(0.52, 0.57, 0.6),
+      fogDensity: 0.0042,
       fogSunColor: new THREE.Color(0.9, 0.82, 0.66),
       fogHeightBase: -30,
       fogHeightFalloff: 0.03,
@@ -151,9 +152,9 @@ export default class Chapter4 extends ChapterBase {
     k.cliffBox(v(-23, 15, 19), v(7, 135 / 2 + 7, 33), ['+x'], { hue, minY: -24, maxY: 34, scale: 1.4 });
     k.cliffBox(v(36, 10, 95), v(12, 120 / 2 + 20, 45), ['-x'], { hue, minY: -50, maxY: 40, scale: 2.4, collide: false });
     k.cliffBox(v(-36, 10, 95), v(12, 120 / 2 + 20, 45), ['+x'], { hue, minY: -50, maxY: 40, scale: 2.4, collide: false });
-    k.cliffBox(v(22, 20, 152), v(8, 70, 22), ['-x'], { hue, minY: -16, maxY: 34, scale: 1.4 });
+    k.cliffBox(v(22, 20, 152), v(8, 70, 22), ['-x'], { hue, minY: -46, maxY: 34, scale: 1.4 });
     k.cliffBox(v(-26, 20, 152), v(10, 70, 22), ['+x'], { hue, minY: -16, maxY: 34, scale: 1.8 });
-    k.cliffBox(v(0, 20, 180), v(32, 70, 8), ['-z'], { hue, minY: -10, maxY: 36, scale: 1.6 });
+    k.cliffBox(v(0, 20, 180), v(32, 70, 8), ['-z'], { hue, minY: -46, maxY: 36, scale: 1.6 });
     k.cliffBox(v(0, 25, -22), v(30, 60, 8), ['+z'], { hue, maxY: 36, scale: 1.8 });
     // The way down from the balcony (Ch3) — a carved stair on the east wall, out of reach above.
     for (let i = 0; i < 18; i++) k.blockAt(v(-14.4, 3 + i * 0.9, -6 + i * 1.1), v(2.6, 0.5, 1.2), 0, false, 0.85);
@@ -211,7 +212,7 @@ export default class Chapter4 extends ChapterBase {
     await step(0.75, 'Dressing the gorge');
     this.dress();
     await step(0.88, 'Haze');
-    k.particles('mist', 70, v(0, -70, 100), v(70, 30, 180), new THREE.Color(0.86, 0.84, 0.82), 120, 0.3, 41, 'tex.mist');
+    k.particles('mist', 70, v(0, -70, 100), v(70, 30, 180), new THREE.Color(0.42, 0.46, 0.5), 120, 0.2, 41, 'tex.mist');
     k.particles('dust', 260, v(0, 0, 30), v(32, 8, 50), new THREE.Color(1, 0.92, 0.75), 0.09, 0.45, 42);
     k.particles('leaves', 50, v(0, 4, 60), v(40, 20, 100), new THREE.Color(1, 1, 1), 0.16, 0.9, 43, 'tex.leaf');
     this.bursts = k.bursts(1400);
@@ -486,19 +487,51 @@ export default class Chapter4 extends ChapterBase {
       under.position.y = -4;
       g.add(under);
       k.root.add(g);
-      const col = world.addBox(v(0, FAR_Y - 0.6, zc), v(14, 0.6, 2), 0, { dynamic: true });
-      pieces.push({ object: g, colliders: [col], delay: 3.0 + i * 1.1, shudder: 1.0, spin: 0.25 });
+      const cols = [world.addBox(v(0, FAR_Y - 0.6, zc), v(14, 0.6, 2), 0, { dynamic: true })];
+      // Pillar stubs stand on their strip of terrace and go down with it.
+      for (const [px, pz] of [[-8, 138], [-4, 146], [6, 142], [-10, 152]] as const) {
+        if (pz < z0 || pz >= z0 + 4) continue;
+        const pillar = new THREE.Mesh(k.ashlar.clone(), k.masonMat);
+        pillar.scale.set(1.2, 2.8, 1.2);
+        pillar.position.set(px, 1.4, pz - zc);
+        pillar.castShadow = pillar.receiveShadow = true;
+        g.add(pillar);
+        cols.push(world.addBox(v(px, FAR_Y + 1.4, pz), v(0.6, 1.4, 0.6), 0, { dynamic: true }));
+      }
+      pieces.push({ object: g, colliders: cols, delay: 3.0 + i * 1.1, shudder: 1.0, spin: 0.25 });
     }
-    // Pillar stubs on the far terrace (cover and silhouette)
-    for (const [x, z] of [[-8, 138], [-4, 146], [6, 142], [-10, 152]] as const) k.blockAt(v(x, FAR_Y + 1.4, z), v(1.2, 2.8, 1.2), 0, true, 0.9);
-    // Edge guards so the run has one way out (the shelf)
-    const g = (x0: number, x1: number, z0: number, z1: number) => world.addBox(v((x0 + x1) / 2, FAR_Y + 0.6, (z0 + z1) / 2), v(Math.max(0.1, (x1 - x0) / 2), 0.6, Math.max(0.1, (z1 - z0) / 2)), 0, { blocksCamera: false, dynamic: false });
-    g(-14.2, -13.8, FAR_Z0, FAR_Z1);
-    g(-14, 13.5, FAR_Z1 - 0.2, FAR_Z1 + 0.2);
     // The shelf along the west wall
     world.addBox(v(SHELF_X, FAR_Y - 2, 164.2), v(0.225, 2, 6.2), 0, { surface: 'stone' });
     k.masonBatch.add(k.stepSlab, v(SHELF_X, FAR_Y - 0.15, 164.2), v(0.45, 0.3, 12.4), 0, 1.2);
     world.addBox(v(16, 10, 164), v(1.8, 20, 7));
+    {
+      const hue = new THREE.Color(1.0, 0.9, 0.8);
+      // The face she ends up hanging on (the real wall, right behind her hands).
+      k.cliffBatch.add(k.plate, v(14.22, -11.5, 168.2), v(0.64, 17, 5.2), 0, 0.82, hue);
+      // The lower passage: a cut doorway in the rock, eight metres down, marked the way the cliff route was.
+      const mouth = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.3), new THREE.MeshBasicMaterial({ color: 0x040403 }));
+      mouth.position.set(13.885, -12.15, 168.2);
+      mouth.rotation.y = -Math.PI / 2;
+      k.root.add(mouth);
+      for (const dz of [-0.92, 0.92]) k.blockAt(v(13.8, -12.15, 168.2 + dz), v(0.4, 2.5, 0.38), 0, false, 0.95);
+      k.blockAt(v(13.8, -10.78, 168.2), v(0.44, 0.38, 2.5), 0, false, 1.0);
+      k.blockAt(v(13.55, -13.42, 168.2), v(1.0, 0.24, 2.5), 0, false, 0.9);
+      const tag = P.pitonRibbon(k.PM, 91);
+      tag.position.set(13.72, -10.4, 169.25);
+      tag.rotation.y = -Math.PI / 2;
+      tag.scale.setScalar(1.5);
+      k.props.add(tag);
+      const tag2 = P.pitonRibbon(k.PM, 92);
+      tag2.position.set(13.8, -7.9, 167.6);
+      tag2.rotation.y = -Math.PI / 2;
+      tag2.scale.setScalar(1.3);
+      k.props.add(tag2);
+      // Water runs out over the sill: the passage behind it is flooded.
+      k.root.add(waterfallMesh(v(13.1, -13.3, 168.2), v(13.1, -44, 168.2), 0.9, v(-1, 0, 0), k.fallMat, 0.7));
+      const glint = new THREE.PointLight(new THREE.Color(0.7, 0.85, 1.0), 2.5, 6, 2);
+      glint.position.set(13.2, -12.2, 168.2);
+      k.root.add(glint);
+    }
     this.far = new Collapse(pieces);
     this.far.setProxy(k.mergedCopy(pieces.map((p) => p.object), 'far-intact'));
     this.far.onDrop = (i) => {
@@ -506,6 +539,8 @@ export default class Chapter4 extends ChapterBase {
       this.ctx.audio.sfx.impact(p, 0.7);
       this.ctx.camera.addTrauma(0.3);
       this.bursts.emit(p, 26, v(12, 0.5, 2), v(0, -1, 0), 1.8, 3);
+      // Fallen rocks lying on that strip go with it.
+      this.rocksF.hideWhere((d) => d.z >= FAR_Z0 + i * 4 && d.z < FAR_Z0 + i * 4 + 4);
     };
     const drops: RockDrop[] = [
       { x: -3, z: 138, groundY: FAR_Y, t: 2.2, size: 1.0, radius: 1.3 },
@@ -544,8 +579,7 @@ export default class Chapter4 extends ChapterBase {
     k.grass(k.scatter(2600, [-16, -12, 16, 50], groundCamp, (x, z) => ok(x, z) && (fbm2(x * 0.1, z * 0.1, 3) > 0 || rnd() < 0.2), [0.5, 1.0]));
     k.ferns(k.scatter(160, [-16, -12, 16, 50], groundCamp, (x, z) => ok(x, z) && Math.abs(x) > 12, [0.6, 1.2], { tilt: 0.2 }));
     k.broadleaf(k.scatter(50, [-16, -12, 16, 50], groundCamp, (x, z) => ok(x, z) && Math.abs(x) > 13.5, [0.7, 1.2]));
-    // Far terrace sparse grass (it's all going over the edge anyway)
-    k.grass(k.scatter(700, [-14, FAR_Z0, 13, FAR_Z1], () => FAR_Y, () => rnd() < 0.5, [0.5, 0.9]));
+    // (No loose grass on the far terrace: it collapses, and plants scattered there were left hanging in the air.)
     // Trees clinging to the walls high up, vines, far forest on the rims
     const far: THREE.Matrix4[] = [];
     for (let i = 0; i < 700; i++) {
@@ -918,15 +952,17 @@ export default class Chapter4 extends ChapterBase {
     const { cinematic, dialogue, player, audio, camera, completeChapter } = this.ctx;
     const seq: Sequence = {
       id: 'ch4_end',
-      duration: 20,
+      duration: 21,
       skippable: true,
       letterbox: true,
-      dof: true,
+      dof: false,
       blendOut: 1,
       shots: [
         { t0: 0, t1: 4, path: [v(8.5, FAR_Y + 2.2, 163), v(8, FAR_Y + 2.6, 163.5)], look: [v(SHELF_X, FAR_Y + 1, 167), v(SHELF_X, FAR_Y - 2, 168)], fov: [44, 50], ease: 'inOut', sway: 0.05 },
-        { t0: 4, t1: 12, path: [v(10.5, -3, 160), v(10, -5, 161)], look: [v(SHELF_X - 0.3, -6.5, 168), v(SHELF_X - 0.3, -7, 168)], fov: [40, 38], ease: 'linear', sway: 0.03 },
-        { t0: 12, t1: 20, path: [v(6, -4, 166), v(4, -12, 168)], look: [v(SHELF_X - 0.5, -10, 168.5), v(0, -60, 175)], fov: [44, 52], ease: 'inOut', sway: 0.02, focus: 30 },
+        // Close on her, hanging on the face.
+        { t0: 4, t1: 10, path: [v(10.4, -5.2, 165.2), v(10.0, -6.0, 165.8)], look: [v(13.8, -5.5, 168.2), v(13.8, -6.0, 168.2)], fov: [40, 37], ease: 'linear', sway: 0.03 },
+        // The ribbon, the doorway below it, and her going down to it.
+        { t0: 10, t1: 21, path: [v(9.6, -8.6, 163.8), v(10.4, -12.3, 165.2)], look: [v(13.9, -9.6, 168.2), v(13.9, -12.2, 168.2)], fov: [44, 36], ease: 'inOut', sway: 0.02 },
       ],
       events: [
         {
@@ -944,15 +980,33 @@ export default class Chapter4 extends ChapterBase {
               camera.addTrauma(0.6);
               this.bursts.emit(player.position.clone(), 40, v(1, 0.3, 2), v(0, -2, 0), 1.6, 3);
             }
-            // She drops onto a ledge below, out of everyone's reach.
-            player.teleport(v(SHELF_X - 0.4, -6.4, 168.2), -Math.PI / 2);
+            // The shelf goes: she drops and catches the face below, out of everyone's reach.
+            player.teleport(v(13.55, -6.4, 168.2), Math.PI / 2);
             this.scripted(true, 'HANG');
+            player.scriptRig = { kind: 'hang', normal: v(-1, 0, 0), ledgeY: -6.4 + 2.02 };
           },
         },
         { t: 4.4, run: () => dialogue.sayOnce('ch4:ending', CH4.ending, true) },
-        { t: 9.5, run: () => this.scripted(true, 'CLIMB') },
+        {
+          t: 10.5,
+          run: () => {
+            // Down, hold by hold, to the ribboned doorway: Marta's lower passage.
+            player.scriptRig = { kind: 'climb', normal: v(-1, 0, 0) };
+            const from = player.position.clone();
+            this.scriptedMove([from, from.clone().setY(-12.75)], 6.6, 'CLIMB', Math.PI / 2, undefined, false);
+          },
+        },
         { t: 12, run: () => audio.music.setMood('wonder', 4) },
-        { t: 17.5, run: () => completeChapter() },
+        {
+          t: 17.3,
+          run: () => {
+            // She swings in onto the sill and walks into the dark.
+            player.scriptRig = null;
+            const from = player.position.clone();
+            this.scriptedMove([from, v(13.5, -13.3, 168.2), v(15.2, -13.3, 168.2)], 2.2, 'WALK', Math.PI / 2, undefined, false);
+          },
+        },
+        { t: 19.6, run: () => completeChapter() },
       ],
     };
     void cinematic.play(this.fitToLines(seq, 4.4, CH4.ending));
@@ -1006,6 +1060,9 @@ export default class Chapter4 extends ChapterBase {
       if (anim) {
         p.setScripted(true);
         p.avatar.driver.setState(anim, { fade: 0.01 });
+        const wallN = v(-Math.sin(yaw), 0, -Math.cos(yaw));
+        if (anim === 'CLIMB') p.scriptRig = { kind: 'climb', normal: wallN };
+        else if (anim === 'LEDGE_IDLE') p.scriptRig = { kind: 'sidle', normal: wallN };
       }
     };
     const camp = () => {

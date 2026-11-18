@@ -17,6 +17,9 @@ export class HUD {
   private skipRing: SVGCircleElement;
   private fadeEl: HTMLElement;
   private clickHint: HTMLElement;
+  private objectiveEl: HTMLElement;
+  private objectiveText: HTMLElement;
+  private objectiveTimer = 0;
   readonly dev: HTMLElement;
   readonly minimap: Minimap;
   subtitlesEnabled = true;
@@ -36,7 +39,9 @@ export class HUD {
     this.fadeEl = el('div', { class: 'fade' });
     this.dev = el('div', { class: 'dev' });
     this.clickHint = el('div', { class: 'click-hint' }, ['Click to take control']);
-    this.root = el('div', { class: 'layer hud' }, [this.prompt, this.subs, this.toasts, this.card, this.skip, this.clickHint, this.fadeEl, this.dev]);
+    this.objectiveText = el('p');
+    this.objectiveEl = el('div', { class: 'objective-note' }, [el('h4', {}, ['Objective']), this.objectiveText]);
+    this.root = el('div', { class: 'layer hud' }, [this.objectiveEl, this.prompt, this.subs, this.toasts, this.card, this.skip, this.clickHint, this.fadeEl, this.dev]);
     parent.append(this.root);
     this.minimap = new Minimap(this.root);
   }
@@ -94,6 +99,19 @@ export class HUD {
     this.fadeEl.style.transitionDuration = `${seconds}s`;
     show(this.fadeEl, on);
     return new Promise((r) => setTimeout(r, seconds * 1000 + 30));
+  }
+
+  /** Briefly shows the current goal (on change), then gets out of the way. */
+  showObjective(text: string, seconds = 7): void {
+    this.objectiveText.textContent = text;
+    show(this.objectiveEl, true);
+    clearTimeout(this.objectiveTimer);
+    this.objectiveTimer = window.setTimeout(() => show(this.objectiveEl, false), seconds * 1000);
+  }
+
+  hideObjective(): void {
+    clearTimeout(this.objectiveTimer);
+    show(this.objectiveEl, false);
   }
 
   setClickHint(v: boolean): void {

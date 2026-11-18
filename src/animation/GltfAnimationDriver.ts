@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { LOCOMOTION_STATES, type AnimParams, type AnimState, type AnimationDriver } from './AnimationDriver';
+import { GAITS, STANCE_STATES, synthesizeGait, synthesizeStance } from './GaitSynth';
 
 export interface CharacterDef {
   asset: string;
@@ -17,7 +18,12 @@ export interface CharacterDef {
   bones: Record<string, string>;
 }
 
-const ONE_SHOTS: AnimState[] = ['JUMP', 'LAND', 'CLIMB_UP', 'VAULT', 'INTERACT', 'PUSH'];
+/** Playback rate of a held state: a leap holds the stride nearly still through the flight. */
+const STATE_RATE: Partial<Record<AnimState, number>> = { LEAP: 0.16, SIT: 0.6 };
+/** Where a state starts by default (s): the point of the sprint where the legs are split widest. */
+const STATE_START: Partial<Record<AnimState, number>> = { LEAP: 0.57 };
+
+const ONE_SHOTS: AnimState[] = ['JUMP', 'LAND', 'INTERACT', 'PUSH', 'ROLL', 'LAND_HARD', 'AIR_START', 'SIT_ENTER', 'SIT_EXIT', 'PICKUP', 'NOD', 'HIT', 'DEATH', 'OPEN'];
 
 interface Layer {
   weight: number;
@@ -43,6 +49,14 @@ export class GltfAnimationDriver implements AnimationDriver {
   private onDone: (() => void) | null = null;
   private oneShotTime = 0;
   private oneShotDuration = 0;
+  /**
+   * The clean pose the mixer produced last frame. The mixer only writes a bone when its mixed value
+   * changed, so anything applied after it (IK, lean, look-at) would otherwise stack up frame after
+   * frame on every still track. Restoring this before each update keeps those layers truly per-frame.
+   */
+  private bones: THREE.Object3D[] = [];
+  private pose: Float32Array = new Float32Array(0);
+  private poseValid = false;
 
   constructor(
     root: THREE.Object3D,
@@ -50,13 +64,27 @@ export class GltfAnimationDriver implements AnimationDriver {
     private def: CharacterDef,
   ) {
     this.mixer = new THREE.AnimationMixer(root);
+    root.traverse((o) => {
+      if ((o as THREE.Bone).isBone) this.bones.push(o);
+    });
+    this.pose = new Float32Array(this.bones.length * 7);
+    const used = new Set<string>();
     for (const [state, clipName] of Object.entries(def.clips) as [AnimState, string][]) {
       const clip = clips.find((c) => c.name === clipName);
       if (!clip) {
         console.warn(`[Anim] clip "${clipName}" for ${state} missing`);
         continue;
       }
-      const a = this.mixer.clipAction(clip);
+      // Several states may share a clip (the climbing states all use a neutral base under the IK):
+      // each needs its own action so their weights never fight.
+      const gait = GAITS[state as keyof typeof GAITS];
+      const walk = clips.find((c) => c.name === def.clips.WALK);
+      // (LEAP keeps the original sprint: it is a held flight pose, not a gait.)
+      const stance = (STANCE_STATES as readonly string[]).includes(state);
+      const source =
+        gait && walk ? synthesizeGait(root, clip, walk, gait, def.bones) : stance && walk ? synthesizeStance(root, clip, walk, def.bones) : used.has(clipName) ? clip.clone() : clip;
+      const a = this.mixer.clipAction(source);
+      used.add(clipName);
       if (ONE_SHOTS.includes(state)) {
         a.setLoop(THREE.LoopOnce, 1);
         a.clampWhenFinished = true;
@@ -84,7 +112,7 @@ export class GltfAnimationDriver implements AnimationDriver {
     return this.phase;
   }
 
-  setState(state: AnimState, opts: { fade?: number; restart?: boolean; onDone?: () => void } = {}): void {
+  setState(state: AnimState, opts: { fade?: number; restart?: boolean; onDone?: () => void; startAt?: number } = {}): void {
     const group: AnimState | 'LOCO' = LOCOMOTION_STATES.includes(state) ? 'LOCO' : state;
     const fade = Math.max(0.01, opts.fade ?? 0.2);
     const changed = group !== this.group;
@@ -111,10 +139,11 @@ export class GltfAnimationDriver implements AnimationDriver {
         a.enabled = true;
         if (ONE_SHOTS.includes(state) || opts.restart || layer.weight < 0.05) {
           a.reset();
+          a.time = opts.startAt ?? STATE_START[state] ?? 0;
           a.play();
         }
         if (ONE_SHOTS.includes(state)) {
-          this.oneShotTime = 0;
+          this.oneShotTime = opts.startAt ?? 0;
           this.oneShotDuration = a.getClip().duration;
         }
       }
@@ -133,7 +162,7 @@ export class GltfAnimationDriver implements AnimationDriver {
         if (a) {
           a.setEffectiveWeight(l.weight);
           a.enabled = l.weight > 0.0001;
-          if (!ONE_SHOTS.includes(k)) a.timeScale = k === this.group ? p.rate : a.timeScale;
+          if (!ONE_SHOTS.includes(k)) a.timeScale = k === this.group ? (STATE_RATE[k] ?? p.rate) : a.timeScale;
         }
       }
     }
@@ -173,7 +202,19 @@ export class GltfAnimationDriver implements AnimationDriver {
       a.enabled = w[s] * locoLayer > 0.0001;
     }
 
+    const pose = this.pose;
+    if (this.poseValid) {
+      for (let i = 0, j = 0; i < this.bones.length; i++, j += 7) {
+        this.bones[i].position.fromArray(pose, j);
+        this.bones[i].quaternion.fromArray(pose, j + 3);
+      }
+    }
     this.mixer.update(dt);
+    for (let i = 0, j = 0; i < this.bones.length; i++, j += 7) {
+      this.bones[i].position.toArray(pose, j);
+      this.bones[i].quaternion.toArray(pose, j + 3);
+    }
+    this.poseValid = true;
 
     // One-shot completion
     if (ONE_SHOTS.includes(this.current) && this.onDone) {

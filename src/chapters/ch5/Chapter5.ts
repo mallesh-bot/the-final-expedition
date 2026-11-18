@@ -26,6 +26,7 @@ const SANCTUM = { x0: -16, x1: 16, z0: 32, z1: 64, ceil: 18 };
 const DAIS = v(0, 0, 48);
 const LENS_FLOOR = v(5.2, 0, 41.5);
 const TOBY_HANG = v(0.9, 6.5, 56.6);
+const ROPE_NORMAL = v(0, 0, 1);
 const TIME_LIMIT = 240;
 const EXIT_X1 = -46;
 
@@ -77,6 +78,7 @@ export default class Chapter5 extends ChapterBase {
   private dace!: NpcActor;
   private toby!: NpcActor;
   private tobyRope!: THREE.Mesh;
+  private tobyOnRope = (dt: number): void => this.toby.avatar.climb.ropeHang(dt, this.toby.avatar.root, ROPE_NORMAL);
   private zenith!: THREE.Mesh;
   private zenithMat!: THREE.MeshBasicMaterial;
   private bursts!: BurstPool;
@@ -138,6 +140,7 @@ export default class Chapter5 extends ChapterBase {
     this.dace = this.npc('dace', v(2.5, 0.4, 47), -1.2);
     this.toby = this.npc('toby', TOBY_HANG.clone(), Math.PI, 'HANG');
     this.toby.groundSnap = false;
+    this.toby.rig = this.tobyOnRope;
   }
 
   private buildPassage(): void {
@@ -151,7 +154,10 @@ export default class Chapter5 extends ChapterBase {
     k.ceiling(-2.4, 2.4, -2, 14, 3.4);
     k.masonBatch.add(k.plate, v(0, -0.3, 6), v(5, 0.6, 16), 0, 0.45);
     for (let i = 0; i < 18; i++) k.boulder(v((k.rnd() - 0.5) * 4, -0.1, k.rnd() * 13), 0.18 + k.rnd() * 0.3, 0, false);
-    k.waterPlane(0, 0.32, 6, 4.8, 16);
+    k.waterPlane(0, 0.32, 5.8, 4.8, 15.6);
+    // A raised threshold holds the water in the passage: it no longer ends in mid-air at the doorway.
+    k.blockAt(v(0, 0.19, 13.9), v(4.8, 0.38, 0.6), 0, true, 0.6);
+    k.blockAt(v(0, 0.09, 14.45), v(4.8, 0.18, 0.5), 0, true, 0.6);
     const back = new THREE.Mesh(new THREE.PlaneGeometry(5, 4), new THREE.MeshBasicMaterial({ color: 0x050605 }));
     back.position.set(0, 1.6, -1.35);
     k.root.add(back);
@@ -437,8 +443,9 @@ export default class Chapter5 extends ChapterBase {
     }
     // Toby's rope from the shaft
     this.tobyRope = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 5), k.PM.rope);
-    this.tobyRope.scale.y = S.ceil - TOBY_HANG.y + 2;
-    this.tobyRope.position.set(TOBY_HANG.x, (S.ceil + 2 + TOBY_HANG.y + 1.8) / 2, TOBY_HANG.z);
+    // (runs past him: the tail hangs below his feet)
+    this.tobyRope.scale.y = S.ceil + 2 - (TOBY_HANG.y - 1.1);
+    this.tobyRope.position.set(TOBY_HANG.x, (S.ceil + 2 + TOBY_HANG.y - 1.1) / 2, TOBY_HANG.z);
     k.root.add(this.tobyRope);
     // Lens interaction marker positions
     void LENS_FLOOR;
@@ -571,11 +578,7 @@ export default class Chapter5 extends ChapterBase {
         if (this.puzzle.solved || this.puzzle.busy || this.lensState !== 'seated') return;
         this.ctx.dialogue.say(CH5.callToby[this.tobyTurns % CH5.callToby.length], true);
         this.tobyTurns++;
-        this.toby.setPose('CLIMB');
-        this.after(1.6, () => {
-          this.puzzle.turn(2, 1);
-          this.after(0.8, () => this.toby.setPose('HANG'));
-        });
+        this.after(1.6, () => this.puzzle.turn(2, 1));
       },
     });
     this.ctx.camera.hints = [
@@ -669,6 +672,7 @@ export default class Chapter5 extends ChapterBase {
     this.toby.visible = this.daceDone;
     this.tobyRope.visible = this.daceDone;
     this.toby.groundSnap = false;
+    this.toby.rig = this.tobyOnRope;
     this.toby.place(TOBY_HANG.clone(), Math.PI, 'HANG');
     // Lens + puzzle; a retry resets mirrors (checkpoint = puzzle start).
     if (this.lensState === 'carried') this.lensState = 'floor';
@@ -995,6 +999,7 @@ export default class Chapter5 extends ChapterBase {
             // Toby is lowered off-screen and joins Corwin by the east door.
             this.corwin.place(v(-14.2, 0, 42.6), -Math.PI / 2);
             this.toby.groundSnap = true;
+            this.toby.rig = null;
             this.toby.visible = true;
             this.toby.place(v(-14.2, 0, 40.4), -Math.PI / 2);
             camera.snap(player, -Math.PI / 2, 0.15);

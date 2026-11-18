@@ -10,6 +10,7 @@ import {
   createFoliageMaterial,
   createWaterMaterial,
   createWaterfallMaterial,
+  worldDetail,
   createWorldMaterial,
 } from '../../render/materials/WorldMaterials';
 import { TerrainTiles } from '../../world/Terrain';
@@ -162,13 +163,14 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
     return z > 26 ? 'stone' : 'leaves';
   };
   world.bounds = { minX: -40, maxX: 44, minZ: -65.5, maxZ: 62 };
+  worldDetail.level = ctx.quality().preset === 'low' ? 0 : ctx.quality().preset === 'medium' ? 1 : 2;
   const ground = tex('tex.ground');
   const stone = tex('tex.stone');
   const moss = tex('tex.moss');
   const terrainMat = createWorldMaterial({
     set: ground,
-    splat: { grass: texture('tex.grass'), rock: stone, rockScale: 0.14 },
-    triScale: 0.3,
+    splat: { grass: texture('tex.grass'), rock: stone, rockScale: 0.2 },
+    triScale: 0.24,
     vertexColors: true,
     roughness: 0.95,
     normalScale: 1.1,
@@ -179,11 +181,11 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
   track(terrainMat);
 
   // ================================================================== materials
-  const rockMat = createWorldMaterial({ set: stone, moss: { set: moss, amount: 0.95, min: 0.3 }, triScale: 0.22, vertexColors: true, roughness: 0.92 });
+  const rockMat = createWorldMaterial({ set: stone, moss: { set: moss, amount: 0.95, min: 0.3 }, triScale: 0.3, vertexColors: true, roughness: 0.92 });
   const cliffSet = tex('tex.cliff');
-  const cliffMat = createWorldMaterial({ set: cliffSet, moss: { set: moss, amount: 0.8, min: 0.5 }, triScale: 0.12, vertexColors: true, roughness: 0.95, normalScale: 1.2 });
+  const cliffMat = createWorldMaterial({ set: cliffSet, moss: { set: moss, amount: 0.8, min: 0.5 }, triScale: 0.2, vertexColors: true, roughness: 0.95, normalScale: 1.25 });
   const masonSet = tex('tex.mason');
-  const masonMat = createWorldMaterial({ set: masonSet, moss: { set: moss, amount: 0.85, min: 0.42 }, triScale: 0.32, vertexColors: true, roughness: 0.9 });
+  const masonMat = createWorldMaterial({ set: masonSet, moss: { set: moss, amount: 0.85, min: 0.42 }, triScale: 0.3, vertexColors: true, roughness: 0.9, normalScale: 0.7 });
   const bark = tex('tex.bark');
   const barkMat = new THREE.MeshStandardMaterial({ map: bark.map, normalMap: bark.normalMap, roughness: 0.92, color: 0xb8b0a0 });
   const atlas = texture('tex.foliage');
@@ -202,6 +204,7 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
   await step(0.18, 'Filling the river');
   const waterMat = createWaterMaterial(texture('tex.waterN'), env);
   track(waterMat);
+  waterMat.envMapIntensity = 0.7;
   const riverPts: THREE.Vector3[] = [];
   for (let x = -170; x <= 170; x += 10) riverPts.push(v(x, -0.62, riverZ(x)));
   root.add(riverMesh(riverPts, (t) => 15 + Math.sin(t * 17) * 2, waterMat, 160));
@@ -485,7 +488,7 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
   place(P.signBoard(PM), 0.6, -21.8, 0.1);
   world.addBox(v(0.6, 0.75, -21.8), v(0.1, 0.75, 0.1));
   place(P.rucksack(PM), -0.2, -14.2, 0.7);
-  place(P.lantern(PM, false), 6.9, -4.2, 0, 1.1);
+  place(P.lantern(PM, false), 6.9, -4.2, 0, 0).scale.setScalar(1.5);
   place(P.lantern(PM, false), 0.9, -10.6, 0, 0.76);
 
   // ================================================================== landing (Toby, fire, boat)

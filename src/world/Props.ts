@@ -279,8 +279,15 @@ export function lantern(M: PropMaterials, lit: boolean): THREE.Group {
   const base = mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.05, 10), M.rust);
   const top = mesh(new THREE.ConeGeometry(0.09, 0.08, 10), M.rust);
   top.position.y = 0.26;
-  const glass = mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.18, 10), lit ? M.glassLit : new THREE.MeshStandardMaterial({ color: 0x556055, transparent: true, opacity: 0.45, roughness: 0.2 }), false);
+  const glass = mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.18, 10), lit ? M.glassLit : new THREE.MeshStandardMaterial({ color: 0x9aa89c, roughness: 0.25, metalness: 0.1 }), false);
   glass.position.y = 0.13;
+  // Four wire guards from base to cap: the cap is visibly held up.
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.4;
+    const bar = mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.2, 4), M.darkMetal, false);
+    bar.position.set(Math.cos(a) * 0.075, 0.13, Math.sin(a) * 0.075);
+    g.add(bar);
+  }
   const handle = mesh(new THREE.TorusGeometry(0.06, 0.006, 4, 12, Math.PI), M.darkMetal, false);
   handle.position.y = 0.3;
   g.add(base, top, glass, handle);
@@ -292,23 +299,32 @@ export function campfire(M: PropMaterials, stones: THREE.Material, lit: boolean)
   const rnd = mulberry32(5);
   for (let i = 0; i < 9; i++) {
     const a = (i / 9) * Math.PI * 2;
-    const s = mesh(new THREE.DodecahedronGeometry(0.13 + rnd() * 0.06, 0), stones);
-    s.position.set(Math.cos(a) * 0.45, 0.06, Math.sin(a) * 0.45);
+    const s = mesh(new THREE.DodecahedronGeometry(0.16 + rnd() * 0.07, 0), stones);
+    s.position.set(Math.cos(a) * 0.5, 0.09, Math.sin(a) * 0.5);
     s.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3);
     g.add(s);
   }
   for (let i = 0; i < 4; i++) {
-    const log = mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.7, 6), M.wood);
-    log.rotation.set(Math.PI / 2 - 0.35, (i / 4) * Math.PI * 2, 0);
-    log.position.y = 0.12;
+    const log = mesh(new THREE.CylinderGeometry(0.06, 0.075, 0.8, 7), M.wood);
+    log.rotation.set(Math.PI / 2 - 0.42, (i / 4) * Math.PI * 2 + 0.4, 0);
+    log.position.y = 0.17;
     g.add(log);
   }
+  // Bed of ash, glowing when lit.
+  const bed = new THREE.Mesh(new THREE.CircleGeometry(0.4, 14).rotateX(-Math.PI / 2), lit ? new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 0.5, 0.12) }) : new THREE.MeshStandardMaterial({ color: 0x1c1a18, roughness: 1 }));
+  bed.position.y = 0.035;
+  g.add(bed);
   if (lit) {
     const flames = new THREE.Group();
     flames.name = 'flames';
-    for (let i = 0; i < 4; i++) {
-      const f = new THREE.Mesh(new THREE.ConeGeometry(0.16 - i * 0.02, 0.55 - i * 0.05, 8, 1, true), M.fire);
-      f.position.set((rnd() - 0.5) * 0.12, 0.3, (rnd() - 0.5) * 0.12);
+    for (let i = 0; i < 7; i++) {
+      // Tongues of different heights leaning a little apart: reads as a fire, not a traffic cone.
+      const h = 0.28 + rnd() * 0.34;
+      const f = new THREE.Mesh(new THREE.ConeGeometry(0.05 + rnd() * 0.05, h, 6, 3, true), M.fire);
+      const a = rnd() * Math.PI * 2;
+      const r = i === 0 ? 0 : 0.06 + rnd() * 0.13;
+      f.position.set(Math.cos(a) * r, 0.14 + h / 2, Math.sin(a) * r);
+      f.rotation.set(Math.sin(a) * 0.22, 0, -Math.cos(a) * 0.22);
       f.userData.phase = rnd() * 6;
       flames.add(f);
     }

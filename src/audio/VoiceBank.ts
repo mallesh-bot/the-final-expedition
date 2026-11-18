@@ -51,7 +51,7 @@ export class VoiceBank {
     if (p) return p;
     const ctx = this.a.ctx;
     if (!ctx) return Promise.resolve(null);
-    const job = fetch(`/assets/voice/${key}.ogg`)
+    const job = fetch(`${import.meta.env.BASE_URL}assets/voice/${key}.ogg`)
       .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
       .then((b) => ctx.decodeAudioData(b))
       .then((buf) => {

@@ -27,7 +27,10 @@ function hillHeight(x: number, z: number): number {
   const t = (z + 60) / 7;
   const step = Math.floor(t) + smoothstep(0.72, 1, t - Math.floor(t));
   let h = step * 7 * 0.16 + fbm2(x * 0.04, z * 0.04, 3) * 0.5;
-  h += Math.pow(Math.max(0, Math.abs(x) - 26) / 10, 1.5) * 6;
+  const out = Math.max(0, Math.abs(x) - 26);
+  h += Math.pow(out / 10, 1.5) * 6;
+  // The valley sides break into spurs and gullies the further up they go.
+  if (out > 0) h += (fbm2(x * 0.013, z * 0.013, 3) - 0.5) * Math.min(out, 90) * 0.8 + (fbm2(x * 0.045, z * 0.045, 2) - 0.5) * Math.min(out, 60) * 0.12;
   return h;
 }
 
@@ -81,7 +84,7 @@ export default class Epilogue extends ChapterBase {
       skySunIntensity: 20,
       envIntensity: 0.7,
       fogColor: new THREE.Color(0.68, 0.64, 0.6),
-      fogDensity: 0.0045,
+      fogDensity: 0.003,
       fogSunColor: new THREE.Color(1.0, 0.7, 0.45),
       fogHeightBase: -5,
       fogHeightFalloff: 0.02,

@@ -19,6 +19,10 @@ export function buildWaterfallFX(opts: {
   dot: THREE.Texture;
   mist: THREE.Texture;
   particleScale: number;
+  /** How far the water is thrown out from the lip (m). */
+  throwDist?: number;
+  /** Radius of the ripple ring where it lands (m). */
+  rippleRadius?: number;
 }): THREE.Group {
   const g = new THREE.Group();
   g.name = 'waterfall-fx';
@@ -26,9 +30,10 @@ export function buildWaterfallFX(opts: {
   const out = outward.clone().setY(0).normalize();
   const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), out).normalize();
   const ps = Math.max(0.2, opts.particleScale);
+  const throwDist = opts.throwDist ?? 1.4;
 
   // Front sheet (shared material) + slightly wider, recessed back sheet with its own speed.
-  g.add(waterfallMesh(top, bottom, width, out, opts.material));
+  g.add(waterfallMesh(top, bottom, width, out, opts.material, throwDist));
   const back = opts.material.clone();
   back.uniforms.uTime = globalUniforms.uTime;
   back.uniforms.uSunDir = globalUniforms.uSunDirWorld;
@@ -36,12 +41,12 @@ export function buildWaterfallFX(opts: {
   back.uniforms.uSpeed = { value: 1.15 };
   back.uniforms.uOpacity = { value: 0.55 };
   Object.assign(back.uniforms, fogUniforms);
-  const backMesh = waterfallMesh(top.clone().addScaledVector(out, -0.25), bottom.clone().addScaledVector(out, -0.3), width * 1.25, out, back);
+  const backMesh = waterfallMesh(top.clone().addScaledVector(out, -0.25), bottom.clone().addScaledVector(out, -0.3), width * 1.25, out, back, throwDist);
   backMesh.renderOrder = 2;
   g.add(backMesh);
 
   // Impact point = where the sheet meets the pool (matches waterfallMesh's outward bulge).
-  const impact = bottom.clone().addScaledVector(out, 1.4).setY(opts.poolY);
+  const impact = bottom.clone().addScaledVector(out, throwDist).setY(opts.poolY);
 
   // Falling droplets following the fall curve.
   {
@@ -64,6 +69,7 @@ export function buildWaterfallFX(opts: {
           uOut: { value: out.clone() },
           uRight: { value: right.clone() },
           uWidth: { value: width },
+          uThrow: { value: throwDist },
           uPixelRatio: { value: Math.min(2, window.devicePixelRatio || 1) },
         },
       ]) as Record<string, THREE.IUniform>,
@@ -71,14 +77,14 @@ export function buildWaterfallFX(opts: {
         #include <common>
         #include <fog_pars_vertex>
         attribute vec4 seed;
-        uniform float uTime, uWidth, uPixelRatio;
+        uniform float uTime, uWidth, uPixelRatio, uThrow;
         uniform vec3 uTop, uBottom, uOut, uRight;
         varying float vA;
         void main() {
           float t = fract(uTime * (0.55 + seed.x * 0.45) + seed.y);
           float fall = t * t; // accelerating
           vec3 p = mix(uTop, uBottom, fall);
-          p += uOut * (sqrt(fall) * 1.4 + sin(fall * 3.14159) * 0.3 + seed.z * 0.35);
+          p += uOut * (sqrt(fall) * uThrow + sin(fall * 3.14159) * 0.3 + seed.z * 0.35);
           p += uRight * (seed.w - 0.5) * uWidth * 1.2;
           vA = smoothstep(0.0, 0.06, t) * smoothstep(1.0, 0.85, t);
           vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
@@ -110,9 +116,11 @@ export function buildWaterfallFX(opts: {
   }
 
   // Splash (looping upward bursts) + low mist at the impact.
-  g.add(ambientParticles({ kind: 'spray', count: Math.round(260 * ps), center: impact.clone(), size: new THREE.Vector3(width * 1.2, 1, 1.2), texture: opts.mist, color: new THREE.Color(0.92, 0.96, 0.96), pointSize: 1.6, opacity: 0.28, seed: 7 }));
+  g.add(ambientParticles({ kind: 'spray', count: Math.round(260 * ps), center: impact.clone(), size: new THREE.Vector3(width * 1.2, 1, 1.2), texture: opts.mist, color: new THREE.Color(0.92, 0.96, 0.96), pointSize: 1.6 * Math.min(1, (opts.rippleRadius ?? 3.4) / 3.4), opacity: 0.28, seed: 7 }));
   g.add(ambientParticles({ kind: 'spray', count: Math.round(120 * ps), center: impact.clone(), size: new THREE.Vector3(width * 0.8, 1, 0.8), texture: opts.dot, color: new THREE.Color(1, 1, 1), pointSize: 0.12, opacity: 0.8, seed: 17 }));
-  g.add(ambientParticles({ kind: 'mist', count: Math.round(16 * ps) + 6, center: impact.clone().setY(opts.poolY - 0.2), size: new THREE.Vector3(9, 4, 7), texture: opts.mist, color: new THREE.Color(0.9, 0.93, 0.92), pointSize: 8, opacity: 0.32, seed: 8 }));
+  // (a small fall into a basin raises a little spray, not a cloud)
+  const ms = Math.min(1, (opts.rippleRadius ?? 3.4) / 3.4);
+  g.add(ambientParticles({ kind: 'mist', count: Math.round((16 * ps + 6) * ms), center: impact.clone().setY(opts.poolY - 0.2 * ms), size: new THREE.Vector3(9 * ms, 4 * ms, 7 * ms), texture: opts.mist, color: new THREE.Color(0.9, 0.93, 0.92), pointSize: 8 * ms * ms, opacity: 0.32 * ms, seed: 8 }));
 
   // Ripple / foam disc on the pool surface.
   {
@@ -154,7 +162,7 @@ export function buildWaterfallFX(opts: {
     });
     mat.uniforms.uTime = globalUniforms.uTime;
     Object.assign(mat.uniforms, fogUniforms);
-    const disc = new THREE.Mesh(new THREE.CircleGeometry(3.4, 48).rotateX(-Math.PI / 2), mat);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(opts.rippleRadius ?? 3.4, 48).rotateX(-Math.PI / 2), mat);
     disc.position.copy(impact).setY(opts.poolY + 0.03);
     disc.renderOrder = 4;
     disc.name = 'pool-ripples';

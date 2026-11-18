@@ -5,7 +5,7 @@ import type { QualitySettings } from '../../systems/Quality';
 import type { Persistable } from '../../state/Persistable';
 import type { Mood } from '../../audio/AdaptiveMusic';
 import type { AmbienceConfig } from '../../audio/Ambience';
-import type { Line } from '../../story/Dialogue';
+import type { Line, Speaker } from '../../story/Dialogue';
 import type { Sequence } from '../../cinematic/Sequence';
 import type { PBRSet } from '../../render/textures/ProceduralTextures';
 import type { MinimapImage } from '../../ui/Minimap';
@@ -45,6 +45,8 @@ export interface PickupSpec {
  * chapter world-state persistence, minimap baking and disposal.
  * Subclasses author the level (`build`), its interactions (`setup`) and story (`triggers`).
  */
+const SPEAKER_ACTOR: Partial<Record<Speaker, CharacterId>> = { INES: 'ines', TOBY: 'toby', CORWIN: 'corwin', DACE: 'dace', AYME: 'elder' };
+
 export abstract class ChapterBase implements Chapter {
   abstract readonly id: number;
   abstract readonly title: string;
@@ -157,6 +159,7 @@ export abstract class ChapterBase implements Chapter {
 
   protected npc(id: CharacterId, at: THREE.Vector3, yaw: number, pose: AnimState = 'IDLE'): NpcActor {
     const a = new NpcActor(this.ctx.createAvatar(id), this.ctx.world, this.kit.root);
+    if (id === 'corwin') a.idleStyle = 'FOLD_ARMS';
     a.place(at, yaw, pose);
     this.npcs.push(a);
     return a;
@@ -184,7 +187,8 @@ export abstract class ChapterBase implements Chapter {
         onInteract: () => {
           const it = interaction.get(`pickup:${pk.id}`)!;
           it.enabled = false;
-          player.playAction('INTERACT', it.position, 1.1);
+          // Something low gets picked up from where it lies; anything else is reached for.
+          player.playAction(it.position.y - player.position.y < 1.0 ? 'PICKUP' : 'INTERACT', it.position, 1.1);
           this.after(0.5, () => {
             pk.object.visible = false;
             state.progress.collectibles.add(pk.id);
@@ -273,6 +277,7 @@ export abstract class ChapterBase implements Chapter {
       this.rimLight.intensity = 1.4 * cine * this.charLightScale;
     }
     NpcActor.camera = this.ctx.cinematic.active ? null : cam;
+    this.updatePerformance();
     for (const n of this.npcs) n.update(dt);
     this.updateMove(dt);
     this.updateGlints();
@@ -280,6 +285,27 @@ export abstract class ChapterBase implements Chapter {
     if (this.ctx.cinematic.playing || player.mode.kind === 'scripted' || player.isDead || this.heroMode) return;
     this.triggers(dt);
   }
+
+  /**
+   * Scenes act themselves: whoever has the line gestures and moves their head, the others look at
+   * them, and anyone idle nearby notices Ines. Radio voices are not in the room.
+   */
+  private updatePerformance(): void {
+    const { player, dialogue } = this.ctx;
+    const line = dialogue.current;
+    const who = line && !line.radio ? SPEAKER_ACTOR[line.speaker] : undefined;
+    const speakerNpc = who ? this.npcs.find((n) => n.visible && n.id === who) : undefined;
+    player.avatar.layers.speech = who === 'ines' ? 1 : 0;
+    player.head(this.playerHead);
+    for (const n of this.npcs) {
+      n.setSpeaking(n === speakerNpc);
+      const other = speakerNpc && speakerNpc !== n ? speakerNpc : null;
+      const toPlayer = n.position.distanceTo(player.position) < 8;
+      n.headTarget = other ? other.head(n.lookPoint) : toPlayer ? n.lookPoint.copy(this.playerHead) : null;
+    }
+  }
+
+  private playerHead = new THREE.Vector3();
 
   private updateGlints(): void {
     const g = this.glintPts;

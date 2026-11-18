@@ -741,9 +741,18 @@ ${CREDITS}` : CHAPTER_OUTROS[id] ?? '',
   }
 
   private minimapChapter: unknown = null;
+  private lastObjective = "";
   private updateMinimap(realDt: number, show: boolean): void {
     const mm = this.ui.hud.minimap;
     const ch = this.chapters.current;
+    // Objective reminder: appears when the goal changes (and control is with the player).
+    if (ch && show && !this.cinematic.active) {
+      const o = ch.objective();
+      if (o && o !== this.lastObjective) {
+        this.lastObjective = o;
+        this.ui.hud.showObjective(o);
+      }
+    } else if (this.cinematic.active) this.ui.hud.hideObjective();
     if (ch && this.minimapChapter !== ch) {
       this.minimapChapter = ch;
       mm.setMap(ch.minimap?.() ?? null);

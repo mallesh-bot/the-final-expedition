@@ -84,7 +84,7 @@ input[type='range'] { pointer-events: auto; width: 100%; accent-color: var(--gol
 .prompt { position: absolute; left: 50%; bottom: 17vh; transform: translateX(-50%) translateY(8px); display: flex; align-items: center; gap: 12px; opacity: 0; transition: opacity 0.25s, transform 0.25s; font-size: 12px; letter-spacing: 0.26em; text-transform: uppercase; text-shadow: 0 1px 8px rgba(0,0,0,0.8); }
 .prompt.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .key { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 7px; border: 1px solid rgba(233,227,214,0.7); border-radius: 3px; font-size: 11px; letter-spacing: 0.06em; background: rgba(0,0,0,0.35); }
-.subs { position: absolute; left: 50%; bottom: 7vh; transform: translateX(-50%); width: min(900px, 80vw); text-align: center; opacity: 0; transition: opacity 0.3s; font-size: clamp(15px, 1.25vw, 20px); line-height: 1.45; text-shadow: 0 2px 10px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9); }
+.subs { position: absolute; left: 50%; bottom: 7vh; transform: translateX(-50%); width: min(900px, 80vw); text-align: center; opacity: 0; transition: opacity 0.3s; font-size: clamp(15px, 1.25vw, 20px); line-height: 1.45; text-shadow: 0 2px 10px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9); padding: 14px 40px; background: radial-gradient(ellipse 50% 50% at center, rgba(0,0,0,0.38), rgba(0,0,0,0) 100%); }
 .subs.show { opacity: 1; }
 .subs b { font-weight: 600; letter-spacing: 0.16em; font-size: 0.72em; margin-right: 10px; color: var(--gold); }
 .subs b.TOBY { color: #9fc3c0; }
@@ -94,13 +94,22 @@ input[type='range'] { pointer-events: auto; width: 100%; accent-color: var(--gol
 .subs b.AYME { color: #d39a83; }
 .subs b.NARRATION { display: none; }
 .subs .radio::after { content: ' ◦ radio'; font-size: 0.6em; letter-spacing: 0.2em; color: var(--ink-dim); font-weight: 400; }
+.objective-note { position: absolute; left: 4vw; top: 5vh; max-width: min(420px, 60vw); opacity: 0; transform: translateY(-6px); transition: opacity 0.8s, transform 0.8s; text-shadow: 0 1px 8px rgba(0,0,0,0.9); padding-left: 16px; border-left: 1px solid var(--gold-dim); }
+.objective-note.show { opacity: 1; transform: none; }
+.objective-note h4 { margin: 0 0 6px; font-weight: 400; font-size: 10px; letter-spacing: 0.34em; color: var(--gold); text-transform: uppercase; }
+.objective-note p { margin: 0; font-family: var(--serif); font-size: clamp(14px, 1.15vw, 17px); line-height: 1.45; color: var(--ink); }
+.hud.paused .objective-note { opacity: 0 !important; }
+body.touch .objective-note { top: calc(2.4vmin + var(--sat) + 56px); left: calc(3vmin + var(--sal)); }
+.journal .page .empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: rgba(43,34,23,0.6); }
+.journal .page .empty svg { width: 54px; height: 54px; margin-bottom: 20px; opacity: 0.55; }
+.journal .page .empty p { max-width: 320px; font-size: 16px; }
 .toasts { position: absolute; left: 4vw; bottom: 8vh; display: flex; flex-direction: column; gap: 10px; }
 .toast { display: flex; align-items: center; gap: 14px; opacity: 0; transform: translateX(-12px); transition: opacity 0.5s, transform 0.5s; font-size: 11px; letter-spacing: 0.26em; text-transform: uppercase; text-shadow: 0 1px 6px rgba(0,0,0,0.9); }
 .toast.show { opacity: 1; transform: none; }
 .toast .ico { width: 22px; height: 22px; border: 1px solid var(--gold); border-radius: 50%; position: relative; }
 .toast .ico::after { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: var(--gold); opacity: 0.7; }
 .toast small { display: block; color: var(--ink-dim); letter-spacing: 0.14em; margin-top: 3px; text-transform: none; font-size: 11px; }
-.card { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transition: opacity 1.4s ease; text-shadow: 0 2px 20px rgba(0,0,0,0.8); }
+.card { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 15vh; opacity: 0; transition: opacity 1.4s ease; text-shadow: 0 2px 20px rgba(0,0,0,0.8); }
 .card.show { opacity: 1; }
 .card .num { font-size: 12px; letter-spacing: 0.7em; margin-right: -0.7em; color: var(--gold); }
 .card .name { margin-top: 18px; font-family: var(--serif); font-size: clamp(30px, 3.4vw, 56px); letter-spacing: 0.3em; margin-right: -0.3em; font-weight: 400; }

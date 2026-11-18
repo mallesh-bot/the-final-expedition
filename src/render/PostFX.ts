@@ -124,19 +124,27 @@ const GradeShader = {
     uFadeColor: { value: new THREE.Color(0, 0, 0) },
     uPause: { value: 0 },
     uSaturation: { value: 1.12 },
-    uContrast: { value: 1.12 },
+    uContrast: { value: 1.04 },
+    uCurve: { value: 0.42 },
+    uSharpen: { value: 0.38 },
     uLift: { value: new THREE.Vector3(0.004, 0.01, 0.014) },
     uGain: { value: new THREE.Vector3(1.03, 1.0, 0.96) },
     uFlash: { value: 0 },
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse; uniform vec2 uResolution; uniform float uTime, uVignette, uGrain, uLetterbox, uFade, uPause, uSaturation, uContrast, uFlash;
+    uniform sampler2D tDiffuse; uniform vec2 uResolution; uniform float uTime, uVignette, uGrain, uLetterbox, uFade, uPause, uSaturation, uContrast, uFlash, uCurve, uSharpen;
     uniform vec3 uFadeColor, uLift, uGain;
     varying vec2 vUv;
     void main() {
       vec2 uv = vUv;
       vec3 c = texture2D(tDiffuse, uv).rgb;
+      if (uSharpen > 0.001) {
+        // Recovers the crispness dynamic resolution takes away, without ringing on hard edges.
+        vec2 sp = 1.0 / uResolution;
+        vec3 sb = (texture2D(tDiffuse, uv + vec2(sp.x, 0.0)).rgb + texture2D(tDiffuse, uv - vec2(sp.x, 0.0)).rgb + texture2D(tDiffuse, uv + vec2(0.0, sp.y)).rgb + texture2D(tDiffuse, uv - vec2(0.0, sp.y)).rgb) * 0.25;
+        c += clamp((c - sb) * uSharpen * 2.0, -0.1, 0.1);
+      }
       if (uPause > 0.001) {
         vec2 px = (2.0 + uPause * 3.0) / uResolution;
         vec3 b = vec3(0.0);
@@ -148,6 +156,9 @@ const GradeShader = {
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
       c = mix(vec3(l), c, uSaturation);
       c = (c - 0.5) * uContrast + 0.5;
+      // Filmic S-curve: deep shadows and a rolled-off top instead of a flat, foggy midrange.
+      vec3 cl = clamp(c, 0.0, 1.0);
+      c = mix(c, cl * cl * (3.0 - 2.0 * cl), uCurve);
       c += vec3(-0.012, 0.004, 0.02) * (1.0 - l) + vec3(0.02, 0.008, -0.018) * l;
       vec2 d = uv - 0.5; d.x *= uResolution.x / uResolution.y;
       float v = smoothstep(1.05, 0.28, length(d));

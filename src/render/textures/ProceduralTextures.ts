@@ -833,9 +833,11 @@ export function waterfallTexture(size = 256): THREE.Texture {
       const v = y / size;
       const streak = fbmTile(u, v * 0.125, 24, 3, 3);
       const foam = fbmTile(u, v, 8, 4, 9);
-      const val = clamp(streak * 1.2 - 0.25 + foam * 0.35, 0, 1);
+      const val = clamp((streak * 1.2 - 0.25 + foam * 0.35 - 0.5) * 1.8 + 0.5, 0, 1);
+      const packet = clamp((fbmTile(u, v, 6, 4, 17) - 0.5) * 2.4 + 0.5, 0, 1);
       const i = (y * size + x) * 4;
-      data[i] = data[i + 1] = data[i + 2] = val * 255;
+      data[i] = data[i + 2] = val * 255;
+      data[i + 1] = packet * 255;
       data[i + 3] = 255;
     }
   return dataTex(data, size, false);

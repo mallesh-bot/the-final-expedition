@@ -128,7 +128,8 @@ export class BeamPuzzle extends Puzzle<{ angles: number[]; extra: unknown }> {
     this.applyRotations();
     // While a mirror turns its beam is "searching": hide downstream segments.
     if (this.busy) {
-      for (const p of this.pool) p.visible = false;
+      // The shaft from the sun-slit never goes out; only what the turning mirror sends on is lost.
+      this.pool.forEach((p, i) => (p.visible = p.visible && i === 0));
       for (const l of this.lights) l.intensity = 0;
       return;
     }

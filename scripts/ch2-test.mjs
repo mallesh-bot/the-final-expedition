@@ -9,7 +9,7 @@ const pos = async () => (await state()).player.pos;
 await teleport(2.5, 0, 3.0, 0);
 await waitSim(0.5);
 await press('KeyE');
-await waitSim(2);
+await waitSim(3); // (tying the rope and letting it run out takes 2.4 s)
 check('rope fixed at the overlook', (await dbg()).rope);
 await press('KeyE');
 await waitSim(5.5);
