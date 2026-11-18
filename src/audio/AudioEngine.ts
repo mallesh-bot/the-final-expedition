@@ -41,6 +41,14 @@ export class AudioEngine {
     if (this.ctx.state === 'suspended') void this.ctx.resume();
   }
 
+  /** Tab hidden: stop all sound (a ducked mix still leaks from a background tab). */
+  setHidden(hidden: boolean): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    if (hidden && ctx.state === 'running') void ctx.suspend();
+    else if (!hidden && ctx.state === 'suspended') void ctx.resume();
+  }
+
   /** Run fn once the context exists (immediately if already unlocked). */
   whenReady(fn: () => void): void {
     if (this.ctx) fn();

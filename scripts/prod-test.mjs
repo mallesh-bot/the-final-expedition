@@ -65,6 +65,25 @@ await page.screenshot({ path: 'playtest-output/prod-subfolder.png' });
 check('no failed requests', bad.length === 0, bad.slice(0, 8).join(' | '));
 check('no page errors', errs.length === 0, errs.slice(0, 4).join(' | '));
 await browser.close();
+// On a real domain the test hooks and the unlock-everything URL must be dead.
+{
+  const { chromium } = await import('playwright');
+  const { gpuArgs } = await import('./lib/browser.mjs');
+  const live = await chromium.launch({ channel: 'chrome', headless: true, args: [...gpuArgs(), '--host-resolver-rules=MAP game.example 127.0.0.1'] });
+  const lp = await live.newPage({ viewport: { width: 1280, height: 720 } });
+  const lerr = [];
+  lp.on('pageerror', (e) => lerr.push(e.message));
+  await lp.goto(`http://game.example:5301${PREFIX}/?debug&chapters=all`);
+  await lp.waitForSelector('.menu.show button[data-action="new"]', { timeout: 120000 });
+  check('live site: ?debug does not install test hooks', (await lp.evaluate(() => typeof window.__TFE)) === 'undefined');
+  check('live site: no debug overlay text', ((await lp.textContent('.hud .dev')) ?? '') === '');
+  await lp.click('button[data-action="chapters"]');
+  const locked = await lp.$$eval('.menu nav.chapters button[data-chapter]', (b) => b.map((x) => x.disabled));
+  check('live site: ?chapters=all unlocks nothing', locked.length === 6 && !locked[0] && locked.slice(1).every(Boolean), JSON.stringify(locked));
+  await lp.screenshot({ path: 'playtest-output/prod-live-menu.png' });
+  check('live site: no page errors', lerr.length === 0, lerr.slice(0, 3).join(' | '));
+  await live.close();
+}
 server.close();
 console.log(`\n${res.filter(Boolean).length}/${res.length} production checks passed`);
 process.exit(res.every(Boolean) ? 0 : 1);

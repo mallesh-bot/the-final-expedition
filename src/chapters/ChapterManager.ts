@@ -11,6 +11,8 @@ export class ChapterManager {
   current: Chapter | null = null;
   private checkpointSnapshot: Snapshot | null = null;
   private respawning = false;
+  /** Bumped whenever the world is replaced (new game, continue, menu): cancels a respawn in flight. */
+  private epoch = 0;
   onProgress: (f: number, label: string) => void = () => {};
   onChapterComplete: ((id: number) => void) | null = null;
 
@@ -41,7 +43,15 @@ export class ChapterManager {
     return ch;
   }
 
+  /** Leaving play (menu, chapter change): any pending respawn must not touch the new world. */
+  cancelRespawn(): void {
+    this.epoch++;
+    this.checkpointSnapshot = null;
+    this.respawning = false;
+  }
+
   async unload(): Promise<void> {
+    this.cancelRespawn();
     if (!this.current) return;
     const ch = this.current;
     this.current = null;
@@ -64,6 +74,7 @@ export class ChapterManager {
    */
   startNew(carry?: { collectibles: string[]; storyFlags: Record<string, boolean>; completedPuzzles: string[]; playtimeSec: number; dialogue?: string[] }): void {
     const ch = this.current!;
+    this.cancelRespawn();
     const snap = emptySnapshot(ch.id, ch.firstCheckpoint);
     if (carry) {
       snap.collectibles = [...carry.collectibles];
@@ -82,11 +93,14 @@ export class ChapterManager {
   /** Continue from a saved snapshot. */
   continueFrom(s: Snapshot): void {
     const ch = this.current!;
+    this.cancelRespawn();
     this.ctx.state.restore(s);
     const cp = ch.checkpoints[s.checkpoint] ? s.checkpoint : ch.firstCheckpoint;
+    this.ctx.state.progress.checkpoint = cp;
     ch.onRestored(cp, false);
     // Respawns go back to the checkpoint state, not the exact manual-save position.
     this.checkpointSnapshot = cloneSnapshot(s);
+    this.checkpointSnapshot.checkpoint = cp;
     delete this.checkpointSnapshot.systems.player;
     ch.begin(false);
   }
@@ -107,7 +121,10 @@ export class ChapterManager {
   async respawn(): Promise<void> {
     if (this.respawning || !this.current || !this.checkpointSnapshot) return;
     this.respawning = true;
+    const epoch = this.epoch;
     await this.ctx.hud.fade(true, 0.9);
+    // The player quit to the menu (or the chapter changed) during the fade: leave the new world alone.
+    if (epoch !== this.epoch || !this.current || !this.checkpointSnapshot) return;
     const snap = cloneSnapshot(this.checkpointSnapshot);
     // Keep collectibles found since the checkpoint (never take pickups away).
     const found = new Set([...snap.collectibles, ...this.ctx.state.progress.collectibles]);
@@ -116,18 +133,23 @@ export class ChapterManager {
     this.ctx.state.restore(snap);
     this.current.onRestored(snap.checkpoint, false);
     await new Promise((r) => setTimeout(r, 250));
+    if (epoch !== this.epoch) return;
     await this.ctx.hud.fade(false, 0.9);
-    this.respawning = false;
+    if (epoch === this.epoch) this.respawning = false;
   }
 
   completeChapter(): void {
     const ch = this.current;
     if (!ch) return;
     const p = this.ctx.state.progress;
+    if (p.chapter !== ch.id) return; // already completed (an ending event that fired twice)
     p.setFlag(`ch${ch.id}_complete`);
     p.chapter = ch.id + 1;
     p.checkpoint = `ch${ch.id + 1}_start`;
-    this.saves.write('auto', this.ctx.state.capture(), this.saveLabel());
+    // Her position belongs to the chapter that just ended, not to the next one.
+    const snap = this.ctx.state.capture();
+    delete snap.systems.player;
+    this.saves.write('auto', snap, this.saveLabel());
     this.ctx.events.emit('chapter:complete', { id: ch.id });
     this.onChapterComplete?.(ch.id);
   }

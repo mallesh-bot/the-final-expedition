@@ -761,6 +761,12 @@ export default class Chapter5 extends ChapterBase {
       this.say('antechamber', CH5.antechamber);
     }
     if (!this.recordingPlayed && p.distanceTo(v(-4.6, 0, 24.4)) < 3.4) this.say('recorder', CH5.recorder);
+    // Heading for the sanctum without having found the recorder: she notices it on the way past
+    // (the rest of the chapter hangs on that scene).
+    if (!this.recordingPlayed && p.z > 30.5) {
+      this.playRecording();
+      return;
+    }
     if (this.recordingPlayed && !this.daceDone && p.z > 33.5) {
       this.playDace();
       return;
@@ -1051,7 +1057,7 @@ export default class Chapter5 extends ChapterBase {
       return `Turn the mirrors — send each beam to its house. Call to Toby for the high mirror${left}.`;
     }
     if (this.recordingPlayed) return 'Go into the sanctum.';
-    if (this.cpIndex() >= 1) return 'Search the antechamber.';
+    if (this.cpIndex() >= 1) return "Search the antechamber for Marta's recorder.";
     return 'Follow the flooded passage.';
   }
 

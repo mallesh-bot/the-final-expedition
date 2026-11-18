@@ -67,6 +67,15 @@ export class MainMenu {
       const b = el('button', { class: 'interactive', 'data-chapter': String(c.id) }, [c.label]);
       b.disabled = !unlocked.includes(c.id);
       b.onclick = () => {
+        if (!this.cont.disabled && b.dataset.confirm !== '1') {
+          b.dataset.confirm = '1';
+          b.textContent = 'Replaces your save. Click again';
+          setTimeout(() => {
+            b.dataset.confirm = '';
+            b.textContent = c.label;
+          }, 3500);
+          return;
+        }
         this.showChapters(false);
         this.actions.onChapter(c.id);
       };

@@ -56,6 +56,9 @@ const CREDITS = [
   'Built with three.js (MIT). All other textures, sounds and music are generated in the browser.',
 ].join(' ');
 
+/** Test hooks and the unlock-everything URL only work on a developer machine, never on the live site. */
+const LOCAL = import.meta.env.DEV || ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+
 export class Game {
   readonly clock = new GameClock();
   readonly events = new EventBus();
@@ -102,7 +105,7 @@ export class Game {
   private lastPauseToggle = 0;
   private menuT = 0;
   private menuCam = { position: new THREE.Vector3(), look: new THREE.Vector3() };
-  private debug = new URLSearchParams(location.search).has('debug');
+  private debug = LOCAL && new URLSearchParams(location.search).has('debug');
   private devTimer = 0;
   private dofAmount = 0;
   /** Whether the 'ended' card is shown over the menu backdrop (vs. over the gameplay view). */
@@ -198,7 +201,10 @@ export class Game {
     this.player.onInteract = () => this.interaction.tryInteract();
     this.player.onDeath = () => {
       this.camera.addTrauma(0.6);
-      setTimeout(() => void this.chapters.respawn(), 500);
+      setTimeout(() => {
+        // (She may have quit to the menu in that half second.)
+        if (this.gameState === 'playing' || this.gameState === 'paused' || this.gameState === 'journal') void this.chapters.respawn();
+      }, 500);
     };
     this.wireEvents();
 
@@ -245,13 +251,37 @@ export class Game {
         this.autosaveNow();
         if (this.gameState === 'playing') this.pause();
       } else this.clock.resync();
+      this.audio.setHidden(document.hidden);
     });
 
     if (this.debug) (await import('../debug/DebugHooks')).installDebugHooks(this);
+    this.canvas.addEventListener('webglcontextlost', (e) => {
+      // The browser took the graphics context away (memory pressure, driver reset). Nothing can be
+      // drawn again without a reload: keep the progress and say so instead of a frozen picture.
+      e.preventDefault();
+      this.autosaveNow();
+      if (this.gameState === 'playing') this.pause();
+      const box = document.createElement('div');
+      box.className = 'layer loading show';
+      box.style.zIndex = '50';
+      box.innerHTML = '<div class="title">THE FINAL EXPEDITION</div><div class="sub">The graphics device was reset</div><div class="status">Your progress is saved. Reload the page to continue.</div>';
+      const b = document.createElement('button');
+      b.className = 'interactive';
+      b.textContent = 'Reload';
+      b.style.cssText = 'margin-top:28px;padding:12px 28px;background:none;border:1px solid #c9a35b;color:#e9e3d6;letter-spacing:.3em;cursor:pointer';
+      b.onclick = () => location.reload();
+      box.append(b);
+      this.ui.hud.root.parentElement!.append(box);
+    });
     this.loop();
     await new Promise((r) => setTimeout(r, 300));
+    // Loading screen out first, then the menu in: the two titles never overlap.
     this.showMenu();
+    this.ui.menu.setVisible(false);
     L.setVisible(false);
+    setTimeout(() => {
+      if (this.gameState === 'menu' && !this.ui.settings.isOpen) this.ui.menu.setVisible(true);
+    }, 650);
   }
 
   private dialoguePersist(): Persistable<{ played: string[] }> {
@@ -400,10 +430,10 @@ export class Game {
 
   /** Chapters the player has reached (any save / earlier play), plus all with ?chapters=all. */
   private unlockedChapters(): number[] {
-    if (new URLSearchParams(location.search).get('chapters') === 'all' || this.debug) return CHAPTERS.map((c) => c.id);
+    if ((LOCAL && new URLSearchParams(location.search).get('chapters') === 'all') || this.debug) return CHAPTERS.map((c) => c.id);
     let max = 1;
     try {
-      max = Math.max(1, Number(localStorage.getItem('tfe.unlocked') ?? 1) || 1);
+      max = Math.max(1, Number(localStorage.getItem('tfe.unlocked') ?? 1) || 1, this.saves.latest()?.chapter ?? 1);
     } catch {
       /* storage blocked: only Chapter 1 */
     }
@@ -425,6 +455,7 @@ export class Game {
 
   private enterPlaying(): void {
     this.gameState = 'playing';
+    this.lastObjective = '';
     this.clock.setPaused(false);
     this.clock.resync();
     this.audio.setPaused(false);
@@ -432,6 +463,7 @@ export class Game {
   }
 
   private onChapterComplete(id: number): void {
+    if (this.gameState === 'ended') return;
     const p = this.state.progress;
     const all = COLLECTIBLES.filter((c) => c.chapter === id);
     const found = all.filter((c) => p.collectibles.has(c.id)).length;
@@ -554,6 +586,7 @@ ${CREDITS}` : CHAPTER_OUTROS[id] ?? '',
   private async toMainMenu(save = true): Promise<void> {
     if (save) this.autosaveNow();
     this.gameState = 'transition';
+    this.chapters.cancelRespawn();
     this.ui.pause.setVisible(false);
     this.ui.end.close();
     await this.ui.hud.fade(true, 0.7);

@@ -4,6 +4,8 @@ export const SAVE_VERSION = 1;
 export const SAVE_KEY_AUTO = 'tfe.save.auto';
 export const SAVE_KEY_MANUAL = 'tfe.save.manual';
 export const SAVE_KEY_BACKUP_PREFIX = 'tfe.save.corrupt.';
+/** Chapters 1-5, the Epilogue (6), and 7 = the whole game finished. */
+export const MAX_SAVE_CHAPTER = 7;
 
 /** On-disk save format. Plain JSON; versioned; migrated forward on load. */
 export interface SaveData extends Snapshot {
@@ -20,7 +22,7 @@ export function isSaveLike(v: unknown): v is { version: number } {
 /** Structural validation of a (migrated) save. Returns list of problems; empty = valid. */
 export function validateSave(s: SaveData): string[] {
   const errs: string[] = [];
-  if (!Number.isInteger(s.chapter) || s.chapter < 1 || s.chapter > 5) errs.push('chapter out of range');
+  if (!Number.isInteger(s.chapter) || s.chapter < 1 || s.chapter > MAX_SAVE_CHAPTER) errs.push('chapter out of range');
   if (typeof s.checkpoint !== 'string') errs.push('checkpoint not a string');
   if (!Array.isArray(s.completedPuzzles)) errs.push('completedPuzzles not array');
   if (!Array.isArray(s.collectibles)) errs.push('collectibles not array');
