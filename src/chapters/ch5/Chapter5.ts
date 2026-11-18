@@ -763,7 +763,7 @@ export default class Chapter5 extends ChapterBase {
     if (!this.recordingPlayed && p.distanceTo(v(-4.6, 0, 24.4)) < 3.4) this.say('recorder', CH5.recorder);
     // Heading for the sanctum without having found the recorder: she notices it on the way past
     // (the rest of the chapter hangs on that scene).
-    if (!this.recordingPlayed && p.z > 30.5) {
+    if (!this.recordingPlayed && this.cpIndex() < 2 && p.z > 30.5) {
       this.playRecording();
       return;
     }
