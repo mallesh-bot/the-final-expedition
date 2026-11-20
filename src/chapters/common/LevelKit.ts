@@ -481,7 +481,7 @@ export class LevelKit {
   mergedCopy(objs: THREE.Object3D[], name: string): THREE.Group {
     const tmp = new THREE.Group();
     for (const o of objs) {
-      o.updateMatrixWorld(true);
+      o.updateWorldMatrix(true, true);
       const c = o.clone(true);
       c.traverse((n) => {
         const m = n as THREE.Mesh;
@@ -821,7 +821,7 @@ export class LevelKit {
   finish(): void {
     for (const k of this.keep) {
       if (!k.parent || k.parent === this.root) continue;
-      k.updateMatrixWorld(true);
+      k.updateWorldMatrix(true, true);
       const wp = new THREE.Vector3();
       const wq = new THREE.Quaternion();
       const ws = new THREE.Vector3();

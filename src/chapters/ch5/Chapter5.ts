@@ -62,6 +62,8 @@ export default class Chapter5 extends ChapterBase {
   protected kitOptions = { masonMoss: 0.45, cliffMoss: 0.5 };
 
   private recordingPlayed = false;
+  /** Seconds spent inside the walled pit round Toby's mirror (she is lifted out). */
+  private inPit = 0;
   private daceDone = false;
   private lensState: WorldSave['lens'] = 'stand';
   private done = false;
@@ -131,7 +133,8 @@ export default class Chapter5 extends ChapterBase {
     this.buildExit();
     await step(0.88, 'Spray and dust');
     k.particles('dust', 420, v(0, 0, 48), v(30, 16, 30), new THREE.Color(1, 0.92, 0.75), 0.08, 0.55, 51);
-    k.particles('mist', 30, v(0, 0, 6), v(5, 3, 14), new THREE.Color(0.6, 0.62, 0.6), 18, 0.22, 52, 'tex.mist');
+    // Small, low sprites kept off the walls: 18 m sprites in a 4 m passage cut hard-edged sheets into the rock.
+    k.particles('mist', 60, v(0, 0.2, 6), v(1.6, 1.4, 14), new THREE.Color(0.6, 0.62, 0.6), 3.2, 0.2, 52, 'tex.mist');
     this.bursts = k.bursts(500, new THREE.Color(0.5, 0.52, 0.55));
     k.finish();
     this.ctx.traversal.load({ climbs: [], ledges: [], narrows: [], vaults: [], jumps: [] });
@@ -154,7 +157,7 @@ export default class Chapter5 extends ChapterBase {
     k.ceiling(-2.4, 2.4, -2, 14, 3.4);
     k.masonBatch.add(k.plate, v(0, -0.3, 6), v(5, 0.6, 16), 0, 0.45);
     for (let i = 0; i < 18; i++) k.boulder(v((k.rnd() - 0.5) * 4, -0.1, k.rnd() * 13), 0.18 + k.rnd() * 0.3, 0, false);
-    k.waterPlane(0, 0.32, 5.8, 4.8, 15.6);
+    k.waterPlane(0, 0.32, 5.8, 6.4, 15.6);
     // A raised threshold holds the water in the passage: it no longer ends in mid-air at the doorway.
     k.blockAt(v(0, 0.19, 13.9), v(4.8, 0.38, 0.6), 0, true, 0.6);
     k.blockAt(v(0, 0.09, 14.45), v(4.8, 0.18, 0.5), 0, true, 0.6);
@@ -321,15 +324,16 @@ export default class Chapter5 extends ChapterBase {
 
     // The dais + the Lens on its stand under the zenith shaft
     k.masonBatch.add(k.plate, v(DAIS.x, 0.2, DAIS.z), v(8, 0.4, 8), Math.PI / 4, 0.85);
+    k.masonBatch.add(k.block, v(DAIS.x, 0.2, DAIS.z), v(6.1, 0.4, 6.1), Math.PI / 4, 0.82);
     for (let e = 0; e < 4; e++) {
       // Carved kerb along each edge of the diamond dais.
       const a = Math.PI / 4 + (e * Math.PI) / 2;
       const nx = Math.sin(a);
       const nz = Math.cos(a);
-      for (let t = -2.6; t <= 2.6; t += 0.95) k.masonBatch.add(k.ashlar, v(DAIS.x + nx * 2.85 + nz * t, 0.42, DAIS.z + nz * 2.85 - nx * t), v(0.9, 0.12, 0.35), new THREE.Euler(0, a, 0), 1.05);
+      for (let t = -2.6; t <= 2.6; t += 0.95) k.masonBatch.add(k.ashlar, v(DAIS.x + nx * 2.85 + nz * t, 0.45, DAIS.z + nz * 2.85 - nx * t), v(0.9, 0.1, 0.35), new THREE.Euler(0, a, 0), 1.05);
     }
-    k.masonBatch.add(k.plate, v(DAIS.x, 0.47, DAIS.z), v(3, 0.14, 3), Math.PI / 4, 0.95);
-    world.addBox(v(DAIS.x, 0.2, DAIS.z), v(4, 0.2, 4), Math.PI / 4);
+    k.masonBatch.add(k.plate, v(DAIS.x, 0.41, DAIS.z), v(3, 0.03, 3), Math.PI / 4, 0.95);
+    world.addBox(v(DAIS.x, 0.2, DAIS.z), v(3.05, 0.2, 3.05), Math.PI / 4);
     world.addCylinder(v(0, 0.9, 48), 0.45, 0.7);
     k.blockAt(v(0, 0.85, 48), v(0.7, 0.9, 0.7), Math.PI / 4, false, 1.0);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.05, 8, 40), k.PM.bronze);
@@ -390,9 +394,9 @@ export default class Chapter5 extends ChapterBase {
     post.position.set(0, BEAM_Y / 2 - 0.1, 56);
     k.root.add(post);
     for (const [x0, x1, z0, z1] of [[-2.3, 2.3, 53.6, 53.9], [-2.3, 2.3, 58.1, 58.4], [-2.3, -2.0, 53.6, 58.4], [2.0, 2.3, 53.6, 58.4]] as const) world.addBox(v((x0 + x1) / 2, 0.6, (z0 + z1) / 2), v((x1 - x0) / 2, 0.6, (z1 - z0) / 2), 0, { blocksCamera: false });
-    for (let a = 0; a < 16; a++) {
-      const ang = (a / 16) * Math.PI * 2;
-      k.masonBatch.add(k.block, v(Math.cos(ang) * 2.15, 0.2, 56 + Math.sin(ang) * 2.15), v(0.8, 0.4, 0.3), -ang, 0.85);
+    for (const [x0, x1, z0, z1] of [[-2.3, 2.3, 53.6, 53.9], [-2.3, 2.3, 58.1, 58.4], [-2.3, -2.0, 53.9, 58.1], [2.0, 2.3, 53.9, 58.1]] as const) {
+      k.masonBatch.add(k.block, v((x0 + x1) / 2, 0.6, (z0 + z1) / 2), v(x1 - x0, 1.2, z1 - z0), 0, 0.85);
+      k.masonBatch.add(k.block, v((x0 + x1) / 2, 1.24, (z0 + z1) / 2), v(x1 - x0 + 0.08, 0.08, z1 - z0 + 0.08), 0, 0.95);
     }
     const plates = [
       this.plate('rising', 'rising', v(-7, BEAM_Y, S.z1 - 0.48), Math.PI),
@@ -483,7 +487,12 @@ export default class Chapter5 extends ChapterBase {
     k.cliffBox(v((SANCTUM.x0 + EXIT_X1) / 2, 1.5, 38.4), v((SANCTUM.x0 - EXIT_X1) / 2, 3, 1.4), ['+z'], { collide: false, inset: 0.7, hue: new THREE.Color(0.7, 0.72, 0.7) });
     k.cliffBox(v((SANCTUM.x0 + EXIT_X1) / 2, 1.5, 44.6), v((SANCTUM.x0 - EXIT_X1) / 2, 3, 1.4), ['-z'], { collide: false, inset: 0.7, hue: new THREE.Color(0.7, 0.72, 0.7) });
     k.ceiling(EXIT_X1, SANCTUM.x0, 39.5, 43.5, 3.2);
-    k.waterPlane((SANCTUM.x0 + EXIT_X1) / 2, 0.85, 41.5, SANCTUM.x0 - EXIT_X1, 3.4);
+    k.waterPlane((SANCTUM.x0 - 0.8 + EXIT_X1) / 2, 0.85, 41.5, SANCTUM.x0 - 0.8 - EXIT_X1, 4.8);
+    // Steps (0.3 m each, under the step height) up to the sill that dams the passage.
+    k.blockAt(v(SANCTUM.x0 + 0.675, 0.15, 41.5), v(0.45, 0.3, 3.0), 0, true, 0.8);
+    k.blockAt(v(SANCTUM.x0 + 0.225, 0.3, 41.5), v(0.45, 0.6, 3.0), 0, true, 0.8);
+    k.blockAt(v(SANCTUM.x0 - 0.45, 0.45, 41.5), v(0.9, 0.9, 3.2), 0, true, 0.85);
+    k.blockAt(v(SANCTUM.x0 - 1.15, 0.225, 41.5), v(0.5, 0.45, 3.2), 0, true, 0.6);
     // Daylight at the far end
     const day = new THREE.Mesh(new THREE.PlaneGeometry(4, 3.6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.1, 1.9), fog: false }));
     day.position.set(EXIT_X1 + 0.2, 1.6, 41.5);
@@ -721,6 +730,15 @@ export default class Chapter5 extends ChapterBase {
     if (p.x < SANCTUM.x0 + 0.5) cap = 1.9;
     if (this.water.visible && this.waterY > 0.6) cap = Math.min(cap, 3.2);
     this.ctx.player.speedCap = cap;
+    const pl = this.ctx.player;
+    if (Math.abs(p.x) < 2.0 && p.z > 53.9 && p.z < 58.1 && p.y < 1 && pl.mode.kind === 'ground' && !this.ctx.cinematic.active) {
+      this.inPit += dt;
+      if (this.inPit > 0.8) {
+        this.inPit = 0;
+        pl.teleport(v(0, 0, 52.9), Math.PI);
+        this.ctx.camera.snap(pl, Math.PI, 0.2);
+      }
+    } else this.inPit = 0;
     // The Sunlock failing: water rises with the timer; out of time = the sanctum floods.
     if (this.timer > 0 && !this.ctx.cinematic.playing) {
       this.timer -= dt;

@@ -119,4 +119,79 @@ await waitSim(0.5);
 const st5 = await T.holdUntil(['KeyW'], (s) => s.cinematic === 'ch5_recording' || s.player.pos[2] > 40, 12);
 check('ch5: heading for the sanctum without the recording starts the recording scene', st5.cinematic === 'ch5_recording', `cinematic ${st5.cinematic} z ${st5.player.pos[2]}`);
 
+// ---- 6b. Chapter 5 sanctum: she can walk off the centre dais the moment she passes its stones, and
+//          she is never trapped in the walled pit round Toby's mirror.
+await T.skipCine();
+await E(() => window.__TFE.gotoCheckpoint('ch5_sanctum'));
+await waitSim(1);
+await T.skipCine();
+{
+  let worst = 0;
+  for (let i = 0; i < 8; i++) {
+    const yaw = (i / 8) * Math.PI * 2 + 0.2;
+    await T.teleport(Math.sin(yaw) * 1.6, 0.6, 48 + Math.cos(yaw) * 1.6, yaw);
+    await waitSim(0.3);
+    // The kerb is 3.05 m from the centre along each face (up to 4.3 m at the corners): past that she is on the floor.
+    const st = await T.holdUntil(['KeyW'], (s) => s.player.pos[1] < 0.05, 3);
+    const d = Math.hypot(st.player.pos[0], st.player.pos[2] - 48);
+    worst = Math.max(worst, st.player.pos[1] < 0.05 ? d : 99);
+  }
+  check('ch5: she steps off the dais right at its stones (no invisible ledge)', worst < 4.6, `stepped down at ${worst.toFixed(2)} m from the centre`);
+  await T.teleport(0.9, 0, 55.2, 0);
+  await waitSim(1.6);
+  const p = (await state()).player.pos;
+  check('ch5: never trapped in the pit round Toby\'s mirror', p[2] < 53.6, `pos ${p}`);
+}
+
+// ---- 7. The objective note waits for the chapter title instead of sitting on top of it.
+{
+  await T.skipCine();
+  await waitSim(1.5);
+  const both = await E(async () => {
+    const card = document.querySelector('.hud .card');
+    const note = document.querySelector('.hud .objective-note');
+    let overlap = 0;
+    const t0 = performance.now();
+    window.__TFE.game.uiRefs.hud.chapterCard('CHAPTER TEST', 'OVERLAP', 1.5);
+    window.__TFE.game.uiRefs.hud.showObjective('Test objective', 2);
+    let shownLater = false;
+    while (performance.now() - t0 < 4500) {
+      await new Promise((r) => setTimeout(r, 100));
+      const c = card.classList.contains('show');
+      const n = note.classList.contains('show');
+      if (c && n) overlap++;
+      if (!c && n) shownLater = true;
+    }
+    return { overlap, shownLater };
+  });
+  check('objective note never overlaps the chapter title', both.overlap === 0 && both.shownLater, JSON.stringify(both));
+}
+
+// ---- 8. Boot: the loading screen is gone before the menu appears.
+{
+  const p2 = await T.browser.newPage({ viewport: { width: 1100, height: 640 } });
+  await p2.addInitScript(() => {
+    window.__both = 0;
+    const tick = () => {
+      const l = document.querySelector('.layer.loading');
+      const m = document.querySelector('.layer.menu:not(.pause)');
+      if (l && m && l.classList.contains('show') && m.classList.contains('show')) window.__both++;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  await p2.goto(process.env.TFE_URL ?? 'http://localhost:5173/?debug');
+  await p2.waitForSelector('.layer.menu.show button[data-action="new"]', { timeout: 120000 });
+  await p2.waitForTimeout(800);
+  check('boot: loading screen and menu never shown together', (await p2.evaluate(() => window.__both)) === 0);
+
+  // ---- 9. Losing the graphics context: progress saved, a Reload card instead of a frozen frame.
+  await p2.evaluate(() => window.__TFE.game.renderer.renderer.getContext().getExtension('WEBGL_lose_context').loseContext());
+  await p2.waitForTimeout(800);
+  const lost = await p2.evaluate(() => [...document.querySelectorAll('.layer.loading.show')].some((e) => /graphics device was reset/i.test(e.textContent) && e.querySelector('button')));
+  check('graphics reset: Reload card shown', lost);
+  await p2.screenshot({ path: 'playtest-output/launch-context-lost.png' });
+  await p2.close();
+}
+
 await T.finish('launch');

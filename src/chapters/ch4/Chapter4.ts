@@ -308,7 +308,11 @@ export default class Chapter4 extends ChapterBase {
       base.position.y = 0.05;
       tray.add(base);
       for (let r = 0; r < 4; r++) {
-        const core = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.95, 8).rotateZ(Math.PI / 2), k.rockMat);
+        const cg = new THREE.CylinderGeometry(0.035, 0.035, 0.95, 8).rotateZ(Math.PI / 2);
+        // (the rock material reads vertex colours: without them the cores drew black)
+        const tone = 0.7 + r * 0.06;
+        cg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cg.attributes.position.count * 3).map((_, j) => tone * [1, 0.94, 0.86][j % 3]), 3));
+        const core = new THREE.Mesh(cg, k.rockMat);
         core.position.set(0, 0.12, -0.18 + r * 0.12);
         tray.add(core);
       }

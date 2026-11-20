@@ -31,9 +31,9 @@ const INNER_DOOR = { x0: -2, x1: 2 };
 const CHECKPOINTS: Record<string, CheckpointDef> = {
   ch3_start: { pos: v(0, 0, 2), yaw: 0, label: 'The sun-shafts' },
   ch3_hall1: { pos: v(0, FLOOR, 17.5), yaw: 0, label: 'The Rising House' },
-  ch3_passage: { pos: v(5.2, FLOOR, 33.5), yaw: 0, label: 'The passage' },
+  ch3_passage: { pos: v(5.2, FLOOR, 35.5), yaw: 0, label: 'The passage' },
   ch3_hall2: { pos: v(5.2, FLOOR, 46.2), yaw: -0.6, label: 'The Hall of the Three Houses' },
-  ch3_exit: { pos: v(0, FLOOR, 70), yaw: 0, label: 'The inner wall' },
+  ch3_exit: { pos: v(0, FLOOR, 72), yaw: 0, label: 'The inner wall' },
 };
 
 /** Companion route (corridor centrelines) Toby follows Ines along. */

@@ -966,7 +966,7 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
   // those out of the merge.
   const keep = [theoHead, flames].filter(Boolean) as THREE.Object3D[];
   for (const k of keep) {
-    k.updateMatrixWorld(true);
+    k.updateWorldMatrix(true, true);
     const wp = new THREE.Vector3();
     const wq = new THREE.Quaternion();
     const ws = new THREE.Vector3();
@@ -987,7 +987,9 @@ export async function buildCh1World(ctx: ChapterContext, tex: Tex, texture: (k: 
   {
     const p1 = P.paperPage(PM);
     p1.rotation.y = 0.3;
-    const stoneW = new THREE.Mesh(new THREE.DodecahedronGeometry(0.05, 0), rockMat);
+    const swg = new THREE.DodecahedronGeometry(0.05, 0);
+    swg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(swg.attributes.position.count * 3).fill(0.75), 3));
+    const stoneW = new THREE.Mesh(swg, rockMat);
     stoneW.position.set(0.05, 0.03, 0.05);
     const g1 = new THREE.Group();
     g1.position.set(0.55, terrainHeight(0.6, -10.8) + 0.78, -10.75);

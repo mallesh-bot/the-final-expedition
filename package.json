@@ -15,6 +15,7 @@
     "test:anim": "node scripts/anim-test.mjs",
     "test:prod": "node scripts/prod-test.mjs",
     "test:launch": "node scripts/launch-test.mjs",
+    "test:audit": "node scripts/audit-chapters.mjs",
     "anim:sheet": "node scripts/anim-sheet.mjs",
     "playtest": "node scripts/playtest.mjs",
     "playtest:mobile": "node scripts/mobile-test.mjs",

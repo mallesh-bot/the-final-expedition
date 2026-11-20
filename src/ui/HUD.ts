@@ -20,6 +20,8 @@ export class HUD {
   private objectiveEl: HTMLElement;
   private objectiveText: HTMLElement;
   private objectiveTimer = 0;
+  /** Wall time (ms) until the chapter title has faded: the objective note waits for it. */
+  private cardUntil = 0;
   readonly dev: HTMLElement;
   readonly minimap: Minimap;
   subtitlesEnabled = true;
@@ -85,6 +87,12 @@ export class HUD {
     this.cardNum.textContent = num;
     this.cardName.textContent = name;
     show(this.card, true);
+    this.cardUntil = performance.now() + seconds * 1000 + 1400;
+    // A note already on screen steps aside and comes back once the title has gone.
+    if (this.objectiveEl.classList.contains('show')) {
+      show(this.objectiveEl, false);
+      this.showObjective(this.objectiveText.textContent ?? '');
+    }
     setTimeout(() => show(this.card, false), seconds * 1000);
   }
 
@@ -103,9 +111,15 @@ export class HUD {
 
   /** Briefly shows the current goal (on change), then gets out of the way. */
   showObjective(text: string, seconds = 7): void {
+    clearTimeout(this.objectiveTimer);
+    const wait = this.cardUntil - performance.now();
+    if (wait > 0) {
+      // Not on top of the chapter title (they overlap on short landscape phones).
+      this.objectiveTimer = window.setTimeout(() => this.showObjective(text, seconds), wait);
+      return;
+    }
     this.objectiveText.textContent = text;
     show(this.objectiveEl, true);
-    clearTimeout(this.objectiveTimer);
     this.objectiveTimer = window.setTimeout(() => show(this.objectiveEl, false), seconds * 1000);
   }
 

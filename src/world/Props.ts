@@ -254,7 +254,7 @@ export function theodolite(M: PropMaterials): THREE.Group {
     const a = (i / 3) * Math.PI * 2;
     const leg = mesh(new THREE.CylinderGeometry(0.015, 0.02, 1.45, 5), M.wood);
     leg.position.set(Math.cos(a) * 0.28, 0.68, Math.sin(a) * 0.28);
-    leg.rotation.set(Math.sin(a) * 0.38, 0, -Math.cos(a) * 0.38);
+    leg.rotation.set(-Math.sin(a) * 0.38, 0, Math.cos(a) * 0.38);
     g.add(leg);
   }
   const head = new THREE.Group();
@@ -299,7 +299,17 @@ export function campfire(M: PropMaterials, stones: THREE.Material, lit: boolean)
   const rnd = mulberry32(5);
   for (let i = 0; i < 9; i++) {
     const a = (i / 9) * Math.PI * 2;
-    const s = mesh(new THREE.DodecahedronGeometry(0.16 + rnd() * 0.07, 0), stones);
+    const sg = new THREE.DodecahedronGeometry(0.16 + rnd() * 0.07, 0);
+    const shade = 0.62 + rnd() * 0.2;
+    // Soot on the inner faces, plain stone outside.
+    const cols = new Float32Array(sg.attributes.position.count * 3);
+    for (let k = 0; k < sg.attributes.position.count; k++) {
+      const inner = sg.attributes.position.getX(k) * Math.cos(a) + sg.attributes.position.getZ(k) * Math.sin(a) < 0;
+      const c = shade * (inner ? 0.55 : 1);
+      cols.set([c, c * 0.97, c * 0.93], k * 3);
+    }
+    sg.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    const s = mesh(sg, stones);
     s.position.set(Math.cos(a) * 0.5, 0.09, Math.sin(a) * 0.5);
     s.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3);
     g.add(s);

@@ -45,7 +45,7 @@ const SHAFT = v(-30, Y5, 146);
 
 const CHECKPOINTS: Record<string, CheckpointDef> = {
   ch2_start: { pos: v(0.5, Y0, -1.5), yaw: 0.1, label: 'The overlook' },
-  ch2_terraces: { pos: v(2.6, Y1, 9), yaw: 0, label: 'The upper terraces' },
+  ch2_terraces: { pos: v(2.6, Y1, 12), yaw: 0, label: 'The upper terraces' },
   ch2_bridge: { pos: v(-4.5, Y1, 41.5), yaw: -Math.PI / 2, label: 'The rope bridge' },
   ch2_cistern: { pos: v(-27.4, Y1, 64.6), yaw: -0.55, label: 'The cistern' },
   ch2_span: { pos: v(-30.6, Y5, 96.6), yaw: 0, label: 'The aqueduct' },
