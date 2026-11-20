@@ -86,6 +86,9 @@ input[type='range'] { pointer-events: auto; width: 100%; accent-color: var(--gol
 .key { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 7px; border: 1px solid rgba(233,227,214,0.7); border-radius: 3px; font-size: 11px; letter-spacing: 0.06em; background: rgba(0,0,0,0.35); }
 .subs { position: absolute; left: 50%; bottom: 7vh; transform: translateX(-50%); width: min(900px, 80vw); text-align: center; opacity: 0; transition: opacity 0.3s; font-size: clamp(15px, 1.25vw, 20px); line-height: 1.45; text-shadow: 0 2px 10px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9); padding: 14px 40px; background: radial-gradient(ellipse 50% 50% at center, rgba(0,0,0,0.38), rgba(0,0,0,0) 100%); }
 .subs.show { opacity: 1; }
+.hud.montage .subs { bottom: 44vh; transform: translate(-50%, 50%); width: min(760px, 84vw); font-family: var(--serif); font-style: italic; font-size: clamp(18px, 1.7vw, 26px); line-height: 1.6; background: none; transition: opacity 1.2s; }
+.hud.montage .subs b.NARRATION { display: none; }
+.hud.montage .subs b { display: block; margin: 0 0 12px; font-style: normal; font-family: var(--sans, inherit); }
 .subs b { font-weight: 600; letter-spacing: 0.16em; font-size: 0.72em; margin-right: 10px; color: var(--gold); }
 .subs b.TOBY { color: #9fc3c0; }
 .subs b.MARTA { color: #d9b48a; }

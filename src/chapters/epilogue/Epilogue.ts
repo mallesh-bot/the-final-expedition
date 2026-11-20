@@ -347,6 +347,7 @@ export default class Epilogue extends ChapterBase {
 
   protected applyWorld(checkpoint: string): void {
     this.endStarted = false;
+    this.ctx.hud.setMontage(false);
     // Saved during the montage: resume at the trail (the village part is done).
     if (this.met && checkpoint !== 'ep_cliff') {
       const cp = this.checkpoints.ep_cliff;
@@ -363,6 +364,11 @@ export default class Epilogue extends ChapterBase {
 
   protected ambience(): AmbienceConfig {
     return { wind: 0.7, insects: 0.8, birds: 1, frogs: 0.2, drips: 0, water: [] };
+  }
+
+  dispose(): void {
+    this.ctx.hud.setMontage(false);
+    super.dispose();
   }
 
   protected tick(): void {
@@ -464,6 +470,7 @@ export default class Epilogue extends ChapterBase {
     const { hud, dialogue, player, camera, audio } = this.ctx;
     this.scripted(true, 'IDLE');
     await hud.fade(true, 1.6);
+    hud.setMontage(true);
     audio.music.setMood('wonder', 3);
     const dur = (ls: typeof EP.letter) => dialogue.totalDuration(ls);
     dialogue.say(EP.montage, true);
@@ -476,6 +483,7 @@ export default class Epilogue extends ChapterBase {
         camera.snap(player, cp.yaw, 0.18);
         this.ctx.reachCheckpoint('ep_cliff');
         this.ctx.interaction.get('ribbon')!.enabled = true;
+        hud.setMontage(false);
         hud.chapterCard('THE SAEL VALLEY', 'THE FOOT OF THE RED-ROCK TRAIL', 4);
         void hud.fade(false, 2.2).then(() => this.scripted(false));
       });
@@ -494,11 +502,15 @@ export default class Epilogue extends ChapterBase {
       duration: 22,
       skippable: true,
       letterbox: true,
-      dof: true,
+      // The last picture of the game is a wide one: keep all of it sharp.
+      dof: false,
       blendOut: 1,
       shots: [
-        { t0: 0, t1: 6, path: [v(stand.x - 0.9, s.y + 1.25, stand.z + 1.4), v(stand.x - 0.7, s.y + 1.2, stand.z + 1.2)], look: [s.clone().setY(s.y + 1.0)], fov: [30, 26], ease: 'linear', sway: 0.01, focus: 1.6 },
-        { t0: 6, t1: 22, path: [v(s.x - 1.2, s.y + 1.0, s.z - 2), v(s.x - 3, s.y + 3.5, s.z - 14), v(s.x - 2, s.y + 9, s.z - 30)], look: [s.clone().setY(s.y + 1.0), s.clone().setY(s.y + 3), v(CLIFF_X, 12, 14)], fov: [36, 50], ease: 'inOut', sway: 0.02, focus: 12 },
+        // Three-quarter front: her hands at the stake, the stake beside her.
+        { t0: 0, t1: 6.5, path: [v(s.x + 0.9, s.y + 1.45, s.z - 2.2), v(s.x + 0.75, s.y + 1.4, s.z - 2.0)], look: [v(s.x - 0.75, s.y + 1.2, s.z - 0.45), v(s.x - 0.7, s.y + 1.15, s.z - 0.42)], fov: [44, 41], ease: 'linear', sway: 0.01 },
+        // Behind her, rising: the new ribbon, the old ones up the red rock, the top of the cliff.
+        // (No fixed focus: it follows what the camera looks at, so the cliff is sharp at the end.)
+        { t0: 6.5, t1: 22, path: [v(s.x - 1.6, s.y + 1.6, s.z - 3.5), v(s.x - 2.0, s.y + 2.4, s.z - 10), v(s.x - 1.5, s.y + 2.6, s.z - 19)], look: [v(s.x, s.y + 1.2, s.z + 1.5), v(CLIFF_X + 0.8, 5, 12), v(CLIFF_X + 0.6, 10, 12)], fov: [40, 66], ease: 'inOut', sway: 0.02 },
       ],
       events: [
         {

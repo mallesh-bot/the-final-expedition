@@ -128,6 +128,11 @@ export class HUD {
     show(this.objectiveEl, false);
   }
 
+  /** Text over black (the epilogue montage): subtitles move to the centre of the screen. */
+  setMontage(on: boolean): void {
+    this.root.classList.toggle('montage', on);
+  }
+
   setClickHint(v: boolean): void {
     show(this.clickHint, v);
   }
